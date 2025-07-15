@@ -248,6 +248,168 @@ public class CurseForgeClient {
         return null;
     }
     
+    /**
+     * Get mod info by project ID and file ID
+     */
+    public ModInfo getModInfo(int projectId, int fileId) {
+        if (!isAvailable()) {
+            logger.warn("CurseForge API is not available or not configured");
+            return null;
+        }
+        
+        try {
+            // First get project info
+            String projectUrl = String.format("%s/mods/%d", API_BASE_URL, projectId);
+            Request projectRequest = new Request.Builder()
+                .url(projectUrl)
+                .addHeader("Accept", "application/json")
+                .addHeader("x-api-key", this.apiKey)
+                .build();
+            
+            Response projectResponse = httpClient.newCall(projectRequest).execute();
+            if (!projectResponse.isSuccessful()) {
+                logger.error("Failed to fetch project info: {}", projectResponse.code());
+                return null;
+            }
+            
+            JsonObject projectData = gson.fromJson(projectResponse.body().string(), JsonObject.class);
+            JsonObject project = projectData.getAsJsonObject("data");
+            
+            // Then get file info
+            String fileUrl = String.format("%s/mods/%d/files/%d", API_BASE_URL, projectId, fileId);
+            Request fileRequest = new Request.Builder()
+                .url(fileUrl)
+                .addHeader("Accept", "application/json")
+                .addHeader("x-api-key", this.apiKey)
+                .build();
+            
+            Response fileResponse = httpClient.newCall(fileRequest).execute();
+            if (!fileResponse.isSuccessful()) {
+                logger.error("Failed to fetch file info: {}", fileResponse.code());
+                return null;
+            }
+            
+            JsonObject fileData = gson.fromJson(fileResponse.body().string(), JsonObject.class);
+            JsonObject file = fileData.getAsJsonObject("data");
+            
+            // Create ModInfo
+            ModInfo mod = new ModInfo();
+            mod.setName(project.get("name").getAsString());
+            mod.setProjectId(String.valueOf(projectId));
+            mod.setFileId(String.valueOf(fileId));
+            mod.setFileName(file.get("fileName").getAsString());
+            mod.setUrl(file.get("downloadUrl").getAsString());
+            mod.setFileSize(file.get("fileLength").getAsLong());
+            mod.setDescription(project.get("summary").getAsString());
+            mod.setSource(ModInfo.ModSource.CURSEFORGE);
+            mod.setPlatform("curseforge");
+            
+            // Extract server-side compatibility
+            if (project.has("gameVersionLatestFiles")) {
+                JsonArray gameVersions = project.getAsJsonArray("gameVersionLatestFiles");
+                for (int i = 0; i < gameVersions.size(); i++) {
+                    JsonObject gameVersion = gameVersions.get(i).getAsJsonObject();
+                    if (gameVersion.has("projectFileId") && 
+                        gameVersion.get("projectFileId").getAsInt() == fileId) {
+                        
+                        if (gameVersion.has("serverPackFileId")) {
+                            mod.setServerCompatible(true);
+                            mod.setServerSide(true);
+                        }
+                        break;
+                    }
+                }
+            }
+            
+            return mod;
+            
+        } catch (Exception e) {
+            logger.error("Error fetching mod info for project {} file {}: {}", projectId, fileId, e.getMessage());
+            return null;
+        }
+    }
+    
+    /**
+     * Search for mod by slug
+     */
+    public ModInfo searchModBySlug(String slug, String minecraftVersion) {
+        if (!isAvailable()) {
+            logger.warn("CurseForge API is not available or not configured");
+            return null;
+        }
+        
+        try {
+            // Search for mod by slug
+            String searchUrl = String.format("%s/mods/search?gameId=432&slug=%s", API_BASE_URL, 
+                URLEncoder.encode(slug, StandardCharsets.UTF_8));
+            
+            Request request = new Request.Builder()
+                .url(searchUrl)
+                .addHeader("Accept", "application/json")
+                .addHeader("x-api-key", this.apiKey)
+                .build();
+            
+            Response response = httpClient.newCall(request).execute();
+            if (!response.isSuccessful()) {
+                logger.error("Failed to search for mod by slug: {}", response.code());
+                return null;
+            }
+            
+            JsonObject jsonResponse = gson.fromJson(response.body().string(), JsonObject.class);
+            JsonArray data = jsonResponse.getAsJsonArray("data");
+            
+            if (data.size() == 0) {
+                logger.warn("No mod found with slug: {}", slug);
+                return null;
+            }
+            
+            JsonObject mod = data.get(0).getAsJsonObject();
+            
+            // Get latest file for the Minecraft version
+            JsonArray latestFiles = mod.getAsJsonArray("latestFiles");
+            JsonObject latestFile = null;
+            
+            for (int i = 0; i < latestFiles.size(); i++) {
+                JsonObject file = latestFiles.get(i).getAsJsonObject();
+                JsonArray gameVersions = file.getAsJsonArray("gameVersions");
+                
+                for (int j = 0; j < gameVersions.size(); j++) {
+                    if (gameVersions.get(j).getAsString().equals(minecraftVersion)) {
+                        latestFile = file;
+                        break;
+                    }
+                }
+                
+                if (latestFile != null) break;
+            }
+            
+            if (latestFile == null && latestFiles.size() > 0) {
+                latestFile = latestFiles.get(0).getAsJsonObject();
+            }
+            
+            if (latestFile != null) {
+                ModInfo modInfo = new ModInfo();
+                modInfo.setName(mod.get("name").getAsString());
+                modInfo.setProjectId(mod.get("id").getAsString());
+                modInfo.setFileId(latestFile.get("id").getAsString());
+                modInfo.setFileName(latestFile.get("fileName").getAsString());
+                modInfo.setUrl(latestFile.get("downloadUrl").getAsString());
+                modInfo.setFileSize(latestFile.get("fileLength").getAsLong());
+                modInfo.setDescription(mod.get("summary").getAsString());
+                modInfo.setSource(ModInfo.ModSource.CURSEFORGE);
+                modInfo.setPlatform("curseforge");
+                modInfo.setSlug(slug);
+                
+                return modInfo;
+            }
+            
+        } catch (Exception e) {
+            logger.error("Error searching for mod by slug {}: {}", slug, e.getMessage());
+        }
+        
+        return null;
+    }
+    
     private ModInfo parseModFromJson(JsonObject modJson) {
         try {
             ModInfo mod = new ModInfo();
