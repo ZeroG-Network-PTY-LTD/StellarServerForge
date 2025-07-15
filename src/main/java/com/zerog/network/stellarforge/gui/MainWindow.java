@@ -22,9 +22,9 @@ public class MainWindow extends JFrame {
         initializeConfig();
         initializeComponents();
         
-        String appName = SecureConfig.getAppName();
-        String version = SecureConfig.getAppVersion();
-        String organization = SecureConfig.getOrganization();
+        String appName = SecureConfig.getInstance().getAppName();
+        String version = SecureConfig.getInstance().getAppVersion();
+        String organization = SecureConfig.getInstance().getOrganization();
         
         setTitle(appName + " v" + version + " - " + organization);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -58,11 +58,11 @@ public class MainWindow extends JFrame {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         
-        JLabel titleLabel = new JLabel("🚀 " + SecureConfig.getAppName());
+        JLabel titleLabel = new JLabel("🚀 " + SecureConfig.getInstance().getAppName());
         titleLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 24));
         titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
         
-        JLabel subtitleLabel = new JLabel("Space-themed Minecraft Server Creator - " + SecureConfig.getOrganization());
+        JLabel subtitleLabel = new JLabel("Space-themed Minecraft Server Creator - " + SecureConfig.getInstance().getOrganization());
         subtitleLabel.setFont(new Font(Font.SANS_SERIF, Font.ITALIC, 14));
         subtitleLabel.setHorizontalAlignment(SwingConstants.CENTER);
         
@@ -85,8 +85,8 @@ public class MainWindow extends JFrame {
             "<p>Your space-themed Minecraft server creation tool</p>" +
             "<br>" +
             "<p>🔐 <strong>Security Status:</strong></p>" +
-            "<p>CurseForge API: " + (SecureConfig.isCurseForgeApiEnabled() ? "✅ Configured" : "❌ Not Configured") + "</p>" +
-            "<p>Modrinth API: " + (SecureConfig.isModrinthApiEnabled() ? "✅ Enabled" : "⚠️ Disabled") + "</p>" +
+            "<p>CurseForge API: " + (SecureConfig.getInstance().isCurseForgeEnabled() ? "✅ Configured" : "❌ Not Configured") + "</p>" +
+            "<p>Modrinth API: " + (SecureConfig.getInstance().isModrinthEnabled() ? "✅ Enabled" : "⚠️ Disabled") + "</p>" +
             "</div></html>");
         welcomeLabel.setHorizontalAlignment(SwingConstants.CENTER);
         
@@ -131,7 +131,7 @@ public class MainWindow extends JFrame {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER));
         panel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
         
-        JLabel statusLabel = new JLabel("Ready - " + SecureConfig.getAppName() + " v" + SecureConfig.getAppVersion());
+        JLabel statusLabel = new JLabel("Ready - " + SecureConfig.getInstance().getAppName() + " v" + SecureConfig.getInstance().getAppVersion());
         statusLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
         
         panel.add(statusLabel);
@@ -158,9 +158,9 @@ public class MainWindow extends JFrame {
     
     private void showAboutDialog() {
         String message = "<html><div style='width: 400px;'>" +
-            "<h3>🚀 " + SecureConfig.getAppName() + "</h3>" +
-            "<p><strong>Version:</strong> " + SecureConfig.getAppVersion() + "</p>" +
-            "<p><strong>Organization:</strong> " + SecureConfig.getOrganization() + "</p>" +
+            "<h3>🚀 " + SecureConfig.getInstance().getAppName() + "</h3>" +
+            "<p><strong>Version:</strong> " + SecureConfig.getInstance().getAppVersion() + "</p>" +
+            "<p><strong>Organization:</strong> " + SecureConfig.getInstance().getOrganization() + "</p>" +
             "<br>" +
             "<p><strong>Features:</strong></p>" +
             "<ul>" +
