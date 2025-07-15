@@ -7,7 +7,7 @@ import com.zerog.network.stellarforge.modpack.ModpackImporter;
 import com.zerog.network.stellarforge.modpack.ModpackConfig;
 import com.zerog.network.stellarforge.modpack.ModpackConfigDialog;
 import com.zerog.network.stellarforge.modpack.ModpackManifest;
-import com.zerog.network.stellarforge.network.CurseForgeClient;
+import com.zerog.network.stellarforge.api.CurseForgeClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
