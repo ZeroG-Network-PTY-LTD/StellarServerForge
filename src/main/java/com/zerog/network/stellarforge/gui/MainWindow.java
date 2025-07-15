@@ -108,6 +108,14 @@ public class MainWindow extends JFrame {
             }
         });
         
+        JButton importButton = new JButton("Import Modpack");
+        importButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                importModpackFromZip();
+            }
+        });
+        
         JButton aboutButton = new JButton("About");
         aboutButton.addActionListener(new ActionListener() {
             @Override
@@ -117,6 +125,7 @@ public class MainWindow extends JFrame {
         });
         
         buttonPanel.add(configureButton);
+        buttonPanel.add(importButton);
         buttonPanel.add(aboutButton);
         
         gbc.gridy = 1;
