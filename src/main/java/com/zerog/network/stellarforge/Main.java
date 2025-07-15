@@ -3,8 +3,6 @@ package com.zerog.network.stellarforge;
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.zerog.network.stellarforge.config.SecureConfig;
 import com.zerog.network.stellarforge.gui.MainWindow;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 
@@ -13,17 +11,16 @@ import javax.swing.*;
  * ZeroG Network - Space-themed Minecraft server creator
  */
 public class Main {
-    private static final Logger logger = LoggerFactory.getLogger(Main.class);
     
     public static void main(String[] args) {
         // Initialize secure configuration first
         try {
-            SecureConfig.initialize();
+            SecureConfig.getInstance();
         } catch (Exception e) {
-            logger.error("Failed to initialize secure configuration", e);
+            System.err.println("Failed to initialize secure configuration: " + e.getMessage());
             JOptionPane.showMessageDialog(null, 
                 "Failed to initialize configuration: " + e.getMessage() + 
-                "\nPlease check the config directory and ensure API keys are properly configured.",
+                "\nPlease check the application installation.",
                 "Configuration Error", JOptionPane.ERROR_MESSAGE);
             System.exit(1);
         }
@@ -32,7 +29,7 @@ public class Main {
         try {
             UIManager.setLookAndFeel(new FlatDarkLaf());
         } catch (Exception e) {
-            logger.warn("Failed to set FlatDarkLaf, using default look and feel", e);
+            System.err.println("Failed to set FlatDarkLaf, using default look and feel: " + e.getMessage());
         }
         
         // Set system properties for better UI on high-DPI displays
@@ -44,10 +41,10 @@ public class Main {
             try {
                 MainWindow mainWindow = new MainWindow();
                 mainWindow.setVisible(true);
-                logger.info("{} v{} started successfully", 
-                    SecureConfig.getAppName(), SecureConfig.getAppVersion());
+                System.out.println(SecureConfig.getInstance().getAppName() + " v" + 
+                    SecureConfig.getInstance().getAppVersion() + " started successfully");
             } catch (Exception e) {
-                logger.error("Failed to start {}", SecureConfig.getAppName(), e);
+                System.err.println("Failed to start " + SecureConfig.getInstance().getAppName() + ": " + e.getMessage());
                 JOptionPane.showMessageDialog(null, 
                     "Failed to start application: " + e.getMessage(),
                     "Error", JOptionPane.ERROR_MESSAGE);

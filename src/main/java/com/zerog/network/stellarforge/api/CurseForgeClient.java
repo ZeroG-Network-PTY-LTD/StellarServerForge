@@ -38,7 +38,7 @@ public class CurseForgeClient {
         
         // Get API key from secure configuration
         try {
-            this.apiKey = SecureConfig.getCurseForgeApiKey();
+            this.apiKey = SecureConfig.getInstance().getCurseForgeApiKey();
             logger.info("CurseForge API client initialized successfully");
         } catch (Exception e) {
             logger.error("Failed to initialize CurseForge API client: {}", e.getMessage());
@@ -50,7 +50,7 @@ public class CurseForgeClient {
      * Check if CurseForge API is available
      */
     public boolean isAvailable() {
-        return SecureConfig.isCurseForgeApiEnabled();
+        return SecureConfig.getInstance().isCurseForgeEnabled();
     }
     
     /**

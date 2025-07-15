@@ -38,7 +38,7 @@ public class ModrinthClient {
      * Check if Modrinth API is available
      */
     public boolean isAvailable() {
-        return SecureConfig.isModrinthApiEnabled();
+        return SecureConfig.getInstance().isModrinthEnabled();
     }
     
     /**
@@ -72,7 +72,7 @@ public class ModrinthClient {
                 .addHeader("User-Agent", USER_AGENT);
             
             // Add API key if available
-            String apiKey = SecureConfig.getModrinthApiKey();
+            String apiKey = SecureConfig.getInstance().getModrinthApiKey();
             if (apiKey != null && !apiKey.isEmpty()) {
                 requestBuilder.addHeader("Authorization", apiKey);
             }
@@ -191,7 +191,7 @@ public class ModrinthClient {
                 .addHeader("Accept", "application/json")
                 .addHeader("User-Agent", USER_AGENT);
             
-            String apiKey = SecureConfig.getModrinthApiKey();
+            String apiKey = SecureConfig.getInstance().getModrinthApiKey();
             if (apiKey != null && !apiKey.isEmpty()) {
                 requestBuilder.addHeader("Authorization", apiKey);
             }
@@ -235,7 +235,7 @@ public class ModrinthClient {
                 .addHeader("Accept", "application/json")
                 .addHeader("User-Agent", USER_AGENT);
             
-            String apiKey = SecureConfig.getModrinthApiKey();
+            String apiKey = SecureConfig.getInstance().getModrinthApiKey();
             if (apiKey != null && !apiKey.isEmpty()) {
                 requestBuilder.addHeader("Authorization", apiKey);
             }

@@ -29,9 +29,9 @@ public class ServerConfig {
         this.modLoader = ModLoader.FORGE;
         this.modLoaderVersion = "47.2.0";
         this.javaVersion = "17";
-        this.maxRamGb = Integer.parseInt(SecureConfig.getProperty("default.ram.gb", "4"));
-        this.port = Integer.parseInt(SecureConfig.getProperty("default.port", "25565"));
-        this.serverName = SecureConfig.getProperty("default.server.name", "ZeroG Server");
+        this.maxRamGb = Integer.parseInt(SecureConfig.getInstance().getProperty("default.ram.gb", "4"));
+        this.port = Integer.parseInt(SecureConfig.getInstance().getProperty("default.port", "25565"));
+        this.serverName = SecureConfig.getInstance().getProperty("default.server.name", "ZeroG Server");
         this.autoRestart = false;
         this.upnpEnabled = false;
         this.jvmArgs = "-XX:+UseG1GC -Dsun.rmi.dgc.server.gcInterval=2147483646 -XX:+UnlockExperimentalVMOptions -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M";
