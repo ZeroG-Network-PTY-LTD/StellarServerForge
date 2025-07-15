@@ -16,6 +16,13 @@ public class ModInfo {
     private String modLoaderType;
     private long fileSize;
     
+    // Server-side support fields
+    private String slug;
+    private String platform;
+    private boolean serverSide;
+    private boolean serverCompatible;
+    private String serverSideStatus; // "required", "optional", "unsupported"
+    
     public ModInfo() {}
     
     public ModInfo(String name, String version, String description, String fileName, ModSource source) {
@@ -59,6 +66,21 @@ public class ModInfo {
     
     public long getFileSize() { return fileSize; }
     public void setFileSize(long fileSize) { this.fileSize = fileSize; }
+    
+    public String getSlug() { return slug; }
+    public void setSlug(String slug) { this.slug = slug; }
+    
+    public String getPlatform() { return platform; }
+    public void setPlatform(String platform) { this.platform = platform; }
+    
+    public boolean isServerSide() { return serverSide; }
+    public void setServerSide(boolean serverSide) { this.serverSide = serverSide; }
+    
+    public boolean isServerCompatible() { return serverCompatible; }
+    public void setServerCompatible(boolean serverCompatible) { this.serverCompatible = serverCompatible; }
+    
+    public String getServerSideStatus() { return serverSideStatus; }
+    public void setServerSideStatus(String serverSideStatus) { this.serverSideStatus = serverSideStatus; }
     
     public enum ModSource {
         CURSEFORGE("CurseForge"),
