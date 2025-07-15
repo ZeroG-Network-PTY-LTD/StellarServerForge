@@ -9,6 +9,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.File;
+import java.util.List;
 
 /**
  * Main application window for Stellar Server Forge
@@ -183,5 +185,197 @@ public class MainWindow extends JFrame {
             "</div></html>";
         
         JOptionPane.showMessageDialog(this, message, "About", JOptionPane.INFORMATION_MESSAGE);
+    }
+    
+    /**
+     * Import modpack from ZIP file
+     */
+    private void importModpackFromZip() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Select Modpack ZIP File");
+        fileChooser.setFileFilter(new javax.swing.filechooser.FileFilter() {
+            @Override
+            public boolean accept(File f) {
+                return f.isDirectory() || f.getName().toLowerCase().endsWith(".zip");
+            }
+            
+            @Override
+            public String getDescription() {
+                return "ZIP Files (*.zip)";
+            }
+        });
+        
+        if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = fileChooser.getSelectedFile();
+            
+            // Show progress dialog
+            JProgressBar progressBar = new JProgressBar();
+            progressBar.setIndeterminate(true);
+            progressBar.setString("Importing modpack...");
+            progressBar.setStringPainted(true);
+            
+            JDialog progressDialog = new JDialog(this, "Importing Modpack", true);
+            progressDialog.add(progressBar);
+            progressDialog.setSize(300, 80);
+            progressDialog.setLocationRelativeTo(this);
+            
+            // Import in background thread
+            SwingWorker<com.zerog.network.stellarforge.modpack.ModpackImporter.ModpackImportResult, Void> worker = 
+                new SwingWorker<com.zerog.network.stellarforge.modpack.ModpackImporter.ModpackImportResult, Void>() {
+                
+                @Override
+                protected com.zerog.network.stellarforge.modpack.ModpackImporter.ModpackImportResult doInBackground() throws Exception {
+                    com.zerog.network.stellarforge.modpack.ModpackImporter importer = 
+                        new com.zerog.network.stellarforge.modpack.ModpackImporter();
+                    return importer.importModpack(selectedFile.getAbsolutePath(), MainWindow.this);
+                }
+                
+                @Override
+                protected void done() {
+                    progressDialog.dispose();
+                    
+                    try {
+                        com.zerog.network.stellarforge.modpack.ModpackImporter.ModpackImportResult result = get();
+                        
+                        if (result != null) {
+                            handleModpackImportResult(result);
+                        }
+                    } catch (Exception e) {
+                        JOptionPane.showMessageDialog(MainWindow.this, 
+                            "Error importing modpack: " + e.getMessage(), 
+                            "Import Error", JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+            };
+            
+            worker.execute();
+            progressDialog.setVisible(true);
+        }
+    }
+    
+    /**
+     * Handle modpack import result
+     */
+    private void handleModpackImportResult(com.zerog.network.stellarforge.modpack.ModpackImporter.ModpackImportResult result) {
+        com.zerog.network.stellarforge.modpack.ModpackConfig config = result.getConfig();
+        List<ModInfo> mods = result.getMods();
+        
+        // Show import summary
+        StringBuilder summary = new StringBuilder();
+        summary.append("<html><h3>Modpack Import Summary</h3>");
+        summary.append("<p><b>Server Name:</b> ").append(config.getServerName()).append("</p>");
+        summary.append("<p><b>Minecraft Version:</b> ").append(config.getMinecraftVersion()).append("</p>");
+        summary.append("<p><b>Mod Loader:</b> ").append(config.getModLoader()).append(" ").append(config.getModLoaderVersion()).append("</p>");
+        summary.append("<p><b>Server Path:</b> ").append(config.getServerPath()).append("</p>");
+        summary.append("<p><b>Server-Compatible Mods Found:</b> ").append(mods.size()).append("</p>");
+        
+        if (result.hasManifest()) {
+            summary.append("<p><b>Source:</b> CurseForge Manifest</p>");
+        } else {
+            summary.append("<p><b>Source:</b> HTML Mod List</p>");
+        }
+        
+        summary.append("<p>Would you like to proceed with installing these mods?</p></html>");
+        
+        int choice = JOptionPane.showConfirmDialog(this, summary.toString(), 
+            "Modpack Import Complete", JOptionPane.YES_NO_OPTION);
+        
+        if (choice == JOptionPane.YES_OPTION) {
+            // Install mods
+            installModpackMods(config, mods);
+        }
+    }
+    
+    /**
+     * Install modpack mods
+     */
+    private void installModpackMods(com.zerog.network.stellarforge.modpack.ModpackConfig config, List<ModInfo> mods) {
+        // Create server directory
+        File serverDir = new File(config.getServerPath());
+        if (!serverDir.exists()) {
+            serverDir.mkdirs();
+        }
+        
+        // Create mods directory
+        File modsDir = new File(serverDir, "mods");
+        if (!modsDir.exists()) {
+            modsDir.mkdirs();
+        }
+        
+        // Show progress dialog
+        JProgressBar progressBar = new JProgressBar(0, mods.size());
+        progressBar.setString("Installing mods...");
+        progressBar.setStringPainted(true);
+        
+        JDialog progressDialog = new JDialog(this, "Installing Mods", true);
+        progressDialog.add(progressBar);
+        progressDialog.setSize(400, 80);
+        progressDialog.setLocationRelativeTo(this);
+        
+        // Install mods in background thread
+        SwingWorker<Void, Integer> worker = new SwingWorker<Void, Integer>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                for (int i = 0; i < mods.size(); i++) {
+                    ModInfo mod = mods.get(i);
+                    
+                    try {
+                        // Download mod file
+                        if (mod.getUrl() != null && !mod.getUrl().isEmpty()) {
+                            downloadModFile(mod, modsDir);
+                        }
+                        
+                        publish(i + 1);
+                        Thread.sleep(100); // Small delay to show progress
+                        
+                    } catch (Exception e) {
+                        System.err.println("Error installing mod " + mod.getName() + ": " + e.getMessage());
+                    }
+                }
+                return null;
+            }
+            
+            @Override
+            protected void process(List<Integer> chunks) {
+                if (!chunks.isEmpty()) {
+                    int progress = chunks.get(chunks.size() - 1);
+                    progressBar.setValue(progress);
+                    progressBar.setString("Installing mods... (" + progress + "/" + mods.size() + ")");
+                }
+            }
+            
+            @Override
+            protected void done() {
+                progressDialog.dispose();
+                
+                JOptionPane.showMessageDialog(MainWindow.this, 
+                    "Modpack installation complete!\n" + 
+                    "Server: " + config.getServerName() + "\n" + 
+                    "Location: " + config.getServerPath() + "\n" + 
+                    "Mods installed: " + mods.size(), 
+                    "Installation Complete", JOptionPane.INFORMATION_MESSAGE);
+            }
+        };
+        
+        worker.execute();
+        progressDialog.setVisible(true);
+    }
+    
+    /**
+     * Download mod file to mods directory
+     */
+    private void downloadModFile(ModInfo mod, File modsDir) throws Exception {
+        java.net.URL url = new java.net.URL(mod.getUrl());
+        java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
+        
+        try (java.io.InputStream in = connection.getInputStream();
+             java.io.FileOutputStream out = new java.io.FileOutputStream(new File(modsDir, mod.getFileName()))) {
+            
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = in.read(buffer)) != -1) {
+                out.write(buffer, 0, bytesRead);
+            }
+        }
     }
 }
