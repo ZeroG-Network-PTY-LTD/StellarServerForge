@@ -581,6 +581,7 @@ public class MainWindow extends JFrame {
         minecraftVersionCombo.addActionListener(e -> {
             updateConfiguration();
             updateModLoaderVersions();
+            loadVersionsAsync(); // Load versions when Minecraft version changes
         });
         modLoaderCombo.addActionListener(e -> {
             loadVersionsAsync(); // Load versions when mod loader changes
@@ -667,11 +668,16 @@ public class MainWindow extends JFrame {
             @Override
             protected List<String> doInBackground() throws Exception {
                 ServerConfig.ModLoader selectedLoader = (ServerConfig.ModLoader) modLoaderCombo.getSelectedItem();
+                String selectedMcVersion = (String) minecraftVersionCombo.getSelectedItem();
+                
                 if (selectedLoader == null) {
                     selectedLoader = ServerConfig.ModLoader.NEOFORGE; // Default
                 }
+                if (selectedMcVersion == null) {
+                    selectedMcVersion = "1.21.1"; // Default to latest
+                }
                 
-                return improvedVersionFetcher.getAllVersions(selectedLoader.name().toLowerCase());
+                return improvedVersionFetcher.getAllVersionsForMinecraft(selectedLoader.name().toLowerCase(), selectedMcVersion);
             }
             
             @Override
@@ -929,14 +935,23 @@ public class MainWindow extends JFrame {
         SwingWorker<String, Void> versionWorker = new SwingWorker<String, Void>() {
             @Override
             protected String doInBackground() throws Exception {
-                return improvedVersionFetcher.getLatestVersion("neoforge");
+                String mcVersion = (String) minecraftVersionCombo.getSelectedItem();
+                if (mcVersion == null) mcVersion = "1.21.1";
+                
+                List<String> versions = improvedVersionFetcher.getAllVersionsForMinecraft("neoforge", mcVersion);
+                if (!versions.isEmpty()) {
+                    return versions.get(0); // Get the latest version
+                }
+                return "Unknown";
             }
             
             @Override
             protected void done() {
                 try {
                     String version = get();
-                    versionLabel.setText("Latest NeoForge: " + version);
+                    String mcVersion = (String) minecraftVersionCombo.getSelectedItem();
+                    if (mcVersion == null) mcVersion = "1.21.1";
+                    versionLabel.setText("Latest NeoForge for " + mcVersion + ": " + version);
                 } catch (Exception e) {
                     versionLabel.setText("Latest NeoForge: Error loading");
                 }
