@@ -3,6 +3,7 @@ package com.universalator.gui;
 import com.universalator.model.ServerConfig;
 import com.universalator.utils.FileUtil;
 import com.universalator.utils.ServerManager;
+import com.universalator.utils.ModLoaderVersionFetcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,13 +24,14 @@ public class MainWindow extends JFrame {
     
     private ServerConfig serverConfig;
     private Process serverProcess;
+    private ModLoaderVersionFetcher versionFetcher;
     
     // GUI Components
     private JTextField serverNameField;
     private JTextField serverPathField;
     private JComboBox<String> minecraftVersionCombo;
     private JComboBox<ServerConfig.ModLoader> modLoaderCombo;
-    private JTextField modLoaderVersionField;
+    private JComboBox<String> modLoaderVersionCombo;
     private JSpinner ramSpinner;
     private JSpinner portSpinner;
     private JTextField javaPathField;
@@ -47,6 +49,7 @@ public class MainWindow extends JFrame {
     private JScrollPane logScrollPane;
     
     public MainWindow() {
+        this.versionFetcher = new ModLoaderVersionFetcher();
         initializeConfig();
         initializeComponents();
         layoutComponents();
@@ -72,7 +75,7 @@ public class MainWindow extends JFrame {
         serverPathField = new JTextField(30);
         minecraftVersionCombo = new JComboBox<>(ServerManager.getAvailableMinecraftVersions());
         modLoaderCombo = new JComboBox<>(ServerConfig.ModLoader.values());
-        modLoaderVersionField = new JTextField(15);
+        modLoaderVersionCombo = new JComboBox<>();
         ramSpinner = new JSpinner(new SpinnerNumberModel(4, 1, 64, 1));
         portSpinner = new JSpinner(new SpinnerNumberModel(25565, 1024, 65535, 1));
         javaPathField = new JTextField(30);
@@ -160,7 +163,7 @@ public class MainWindow extends JFrame {
         gbc.gridx = 1;
         panel.add(modLoaderCombo, gbc);
         gbc.gridx = 2;
-        panel.add(modLoaderVersionField, gbc);
+        panel.add(modLoaderVersionCombo, gbc);
         
         // RAM
         gbc.gridx = 0; gbc.gridy = 4;
@@ -276,9 +279,15 @@ public class MainWindow extends JFrame {
         // Configuration change listeners
         serverNameField.addActionListener(e -> updateConfiguration());
         serverPathField.addActionListener(e -> updateConfiguration());
-        minecraftVersionCombo.addActionListener(e -> updateConfiguration());
-        modLoaderCombo.addActionListener(e -> updateConfiguration());
-        modLoaderVersionField.addActionListener(e -> updateConfiguration());
+        minecraftVersionCombo.addActionListener(e -> {
+            updateConfiguration();
+            updateModLoaderVersions();
+        });
+        modLoaderCombo.addActionListener(e -> {
+            updateConfiguration();
+            updateModLoaderVersions();
+        });
+        modLoaderVersionCombo.addActionListener(e -> updateConfiguration());
         ramSpinner.addChangeListener(e -> updateConfiguration());
         portSpinner.addChangeListener(e -> updateConfiguration());
         javaPathField.addActionListener(e -> updateConfiguration());
@@ -372,7 +381,7 @@ public class MainWindow extends JFrame {
         serverConfig.setServerPath(serverPathField.getText());
         serverConfig.setMinecraftVersion((String) minecraftVersionCombo.getSelectedItem());
         serverConfig.setModLoader((ServerConfig.ModLoader) modLoaderCombo.getSelectedItem());
-        serverConfig.setModLoaderVersion(modLoaderVersionField.getText());
+        serverConfig.setModLoaderVersion((String) modLoaderVersionCombo.getSelectedItem());
         serverConfig.setMaxRamGb((Integer) ramSpinner.getValue());
         serverConfig.setPort((Integer) portSpinner.getValue());
         serverConfig.setCustomJavaPath(javaPathField.getText());
@@ -389,13 +398,64 @@ public class MainWindow extends JFrame {
         serverPathField.setText(serverConfig.getServerPath() != null ? serverConfig.getServerPath() : "");
         minecraftVersionCombo.setSelectedItem(serverConfig.getMinecraftVersion());
         modLoaderCombo.setSelectedItem(serverConfig.getModLoader());
-        modLoaderVersionField.setText(serverConfig.getModLoaderVersion());
         ramSpinner.setValue(serverConfig.getMaxRamGb());
         portSpinner.setValue(serverConfig.getPort());
         javaPathField.setText(serverConfig.getCustomJavaPath() != null ? serverConfig.getCustomJavaPath() : "");
         jvmArgsArea.setText(serverConfig.getJvmArgs());
         autoRestartCheck.setSelected(serverConfig.isAutoRestart());
         upnpCheck.setSelected(serverConfig.isUpnpEnabled());
+        
+        // Load mod loader versions and set the current one
+        updateModLoaderVersions();
+    }
+    
+    private void updateModLoaderVersions() {
+        ServerConfig.ModLoader selectedLoader = (ServerConfig.ModLoader) modLoaderCombo.getSelectedItem();
+        String selectedVersion = (String) minecraftVersionCombo.getSelectedItem();
+        
+        if (selectedLoader == null || selectedVersion == null) return;
+        
+        // Save current selection
+        String currentVersion = serverConfig.getModLoaderVersion();
+        
+        modLoaderVersionCombo.removeAllItems();
+        modLoaderVersionCombo.addItem("Loading...");
+        modLoaderVersionCombo.setEnabled(false);
+        
+        // Fetch versions asynchronously to avoid blocking the UI
+        SwingWorker<java.util.List<String>, Void> worker = new SwingWorker<java.util.List<String>, Void>() {
+            @Override
+            protected java.util.List<String> doInBackground() throws Exception {
+                return versionFetcher.getModLoaderVersions(selectedLoader.name().toLowerCase(), selectedVersion);
+            }
+            
+            @Override
+            protected void done() {
+                try {
+                    java.util.List<String> versions = get();
+                    
+                    modLoaderVersionCombo.removeAllItems();
+                    for (String version : versions) {
+                        modLoaderVersionCombo.addItem(version);
+                    }
+                    
+                    // Try to restore previous selection
+                    if (currentVersion != null && !currentVersion.isEmpty()) {
+                        modLoaderVersionCombo.setSelectedItem(currentVersion);
+                    }
+                    
+                    modLoaderVersionCombo.setEnabled(true);
+                    
+                } catch (Exception e) {
+                    logger.error("Error fetching mod loader versions", e);
+                    modLoaderVersionCombo.removeAllItems();
+                    modLoaderVersionCombo.addItem("Latest");
+                    modLoaderVersionCombo.setEnabled(true);
+                }
+            }
+        };
+        
+        worker.execute();
     }
     
     private boolean validateConfiguration() {

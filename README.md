@@ -6,16 +6,35 @@ A modern Java GUI application for creating and managing Minecraft modded servers
 
 - **Server Configuration**: Easy setup of Minecraft version, mod loader (Forge, Fabric, Quilt, NeoForge), RAM allocation, and more
 - **Mod Installation**: Browse and install mods from CurseForge and Modrinth APIs
+- **Modpack Import**: Import complete modpacks from ZIP files with automatic mod detection and installation
 - **Suggested Mods**: Get popular mod recommendations based on your server configuration
 - **Server Management**: Start, stop, and monitor your server directly from the GUI
 - **Modern UI**: Clean, dark theme interface using FlatLaf
 - **Configuration Persistence**: Automatically saves and loads your server settings
-- **Secure API Management**: Externalized API key configuration for security
+- **Embedded Security**: API keys are now securely embedded with AES encryption
+
+## 📦 Modpack Import Feature
+
+The application now supports importing modpacks from ZIP files:
+
+- **Automatic Detection**: Detects CurseForge `manifest.json` files and HTML mod lists
+- **User Configuration**: Interactive dialogs for Minecraft version and mod loader selection
+- **Server-Side Filtering**: Automatically filters out client-only mods
+- **Progress Tracking**: Real-time progress updates during import and installation
+- **Fallback Support**: Handles various modpack formats automatically
+
+### Using Modpack Import
+
+1. Click "Import Modpack" in the main menu
+2. Select a ZIP file containing your modpack
+3. Configure import settings (Minecraft version, mod loader, filtering options)
+4. Click "Import" to begin automatic installation
 
 ## 🔐 Security Features
 
-- **Secure API Key Management**: API keys are stored in external configuration files
-- **Git-Safe**: Configuration files containing sensitive data are excluded from version control
+- **Embedded API Keys**: API keys are now securely embedded with AES encryption
+- **KeyVault System**: Secure storage and retrieval of sensitive data
+- **No External Configuration**: No need to configure API keys manually
 - **Runtime Validation**: Validates API keys at startup with clear error messages
 
 ## 🛠️ Setup and Configuration
