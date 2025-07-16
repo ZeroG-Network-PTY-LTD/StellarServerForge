@@ -9,7 +9,6 @@ import com.zerog.network.stellarforge.modpack.ModpackConfigDialog;
 import com.zerog.network.stellarforge.modpack.ModpackManifest;
 import com.zerog.network.stellarforge.api.CurseForgeClient;
 import com.zerog.network.stellarforge.util.ModLoaderVersionFetcher;
-import com.zerog.network.stellarforge.util.ImprovedVersionFetcher;
 import com.zerog.network.stellarforge.util.FileUtil;
 import com.zerog.network.stellarforge.util.ServerManager;
 import com.universalator.gui.ModInstaller;
@@ -35,7 +34,6 @@ public class MainWindow extends JFrame {
     private ServerConfig serverConfig;
     private Process serverProcess;
     private ModLoaderVersionFetcher versionFetcher;
-    private ImprovedVersionFetcher improvedVersionFetcher;
     
     // GUI Components
     private JTextField serverNameField;
@@ -63,7 +61,6 @@ public class MainWindow extends JFrame {
     
     public MainWindow() {
         this.versionFetcher = new ModLoaderVersionFetcher();
-        this.improvedVersionFetcher = new ImprovedVersionFetcher();
         initializeConfig();
         initializeComponents();
         layoutComponents();
@@ -677,7 +674,7 @@ public class MainWindow extends JFrame {
                     selectedMcVersion = "1.21.1"; // Default to latest
                 }
                 
-                return improvedVersionFetcher.getAllVersionsForMinecraft(selectedLoader.name().toLowerCase(), selectedMcVersion);
+                return versionFetcher.getModLoaderVersions(selectedLoader.name().toLowerCase(), selectedMcVersion);
             }
             
             @Override
@@ -938,7 +935,7 @@ public class MainWindow extends JFrame {
                 String mcVersion = (String) minecraftVersionCombo.getSelectedItem();
                 if (mcVersion == null) mcVersion = "1.21.1";
                 
-                List<String> versions = improvedVersionFetcher.getAllVersionsForMinecraft("neoforge", mcVersion);
+                List<String> versions = versionFetcher.getModLoaderVersions("neoforge", mcVersion);
                 if (!versions.isEmpty()) {
                     return versions.get(0); // Get the latest version
                 }
@@ -1058,7 +1055,6 @@ public class MainWindow extends JFrame {
             protected Void doInBackground() throws Exception {
                 // Force refresh of version cache
                 versionFetcher = new ModLoaderVersionFetcher(); // Recreate to clear cache
-                improvedVersionFetcher = new ImprovedVersionFetcher(); // Recreate improved fetcher
                 return null;
             }
             
