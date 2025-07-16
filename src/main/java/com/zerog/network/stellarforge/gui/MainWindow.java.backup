@@ -21,7 +21,6 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
 import javax.imageio.ImageIO;
 import java.awt.*;
-import java.awt.datatransfer.DataFlavor;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
@@ -352,7 +351,7 @@ public class MainWindow extends JFrame {
         
         // Add mod button
         JButton addModButton = new JButton("Add Mod");
-        addModButton.setIcon(createButtonIcon("+", new Color(0, 150, 0)));
+        addModButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/add-icon.png")));
         addModButton.addActionListener(e -> showAddModDialog());
         buttonPanel.add(addModButton);
         
@@ -362,13 +361,13 @@ public class MainWindow extends JFrame {
         
         // Scan button
         JButton scanButton = new JButton("Scan");
-        scanButton.setIcon(createButtonIcon("↻", new Color(0, 100, 200)));
+        scanButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/refresh-icon.png")));
         scanButton.addActionListener(e -> scanAndDisplayMods());
         buttonPanel.add(scanButton);
         
         // Remove selected button
         JButton removeButton = new JButton("Remove");
-        removeButton.setIcon(createButtonIcon("×", new Color(200, 0, 0)));
+        removeButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/remove-icon.png")));
         removeButton.addActionListener(e -> removeSelectedMods());
         buttonPanel.add(removeButton);
         
@@ -429,40 +428,6 @@ public class MainWindow extends JFrame {
             }
         });
         
-        // Add context menu
-        JPopupMenu contextMenu = new JPopupMenu();
-        JMenuItem enableItem = new JMenuItem("Enable/Disable");
-        JMenuItem detailsItem = new JMenuItem("View Details");
-        JMenuItem removeItem = new JMenuItem("Remove");
-        JMenuItem updateItem = new JMenuItem("Check for Updates");
-        JMenuItem openFolderItem = new JMenuItem("Open Mod Folder");
-        
-        enableItem.addActionListener(e -> toggleModEnabled(true));
-        detailsItem.addActionListener(e -> {
-            int selectedRow = modTable.getSelectedRow();
-            if (selectedRow >= 0) {
-                int modelRow = modTable.convertRowIndexToModel(selectedRow);
-                ModInfo selectedMod = getModFromTableRow(modelRow);
-                showModDetailsDialog(selectedMod);
-            }
-        });
-        removeItem.addActionListener(e -> removeSelectedMods());
-        updateItem.addActionListener(e -> checkModUpdates());
-        openFolderItem.addActionListener(e -> openModFolder());
-        
-        contextMenu.add(enableItem);
-        contextMenu.add(detailsItem);
-        contextMenu.addSeparator();
-        contextMenu.add(removeItem);
-        contextMenu.addSeparator();
-        contextMenu.add(updateItem);
-        contextMenu.add(openFolderItem);
-        
-        modTable.setComponentPopupMenu(contextMenu);
-        
-        // Enable drag and drop
-        setupDragAndDrop(modTable);
-        
         // Add double-click listener for mod details dialog
         modTable.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent e) {
@@ -477,9 +442,6 @@ public class MainWindow extends JFrame {
             }
         });
         
-        // Enable drag and drop for mod files
-        setupDragAndDrop(modTable);
-        
         JScrollPane scrollPane = new JScrollPane(modTable);
         scrollPane.setPreferredSize(new Dimension(800, 300));
         tablePanel.add(scrollPane, BorderLayout.CENTER);
@@ -489,41 +451,6 @@ public class MainWindow extends JFrame {
         tablePanel.putClientProperty("tableModel", tableModel);
         
         return tablePanel;
-    }
-    
-    /**
-     * Enable drag and drop for mod files
-     */
-    private void setupDragAndDrop(JTable modTable) {
-        modTable.setDropMode(DropMode.ON);
-        modTable.setTransferHandler(new TransferHandler() {
-            @Override
-            public boolean canImport(TransferSupport support) {
-                return support.isDataFlavorSupported(DataFlavor.javaFileListFlavor);
-            }
-            
-            @Override
-            @SuppressWarnings("unchecked")
-            public boolean importData(TransferSupport support) {
-                if (!canImport(support)) {
-                    return false;
-                }
-                
-                try {
-                    List<File> files = (List<File>) support.getTransferable().getTransferData(DataFlavor.javaFileListFlavor);
-                    
-                    for (File file : files) {
-                        if (file.getName().toLowerCase().endsWith(".jar")) {
-                            addModFromFile(file.getAbsolutePath());
-                        }
-                    }
-                    return true;
-                } catch (Exception e) {
-                    logger.error("Error importing dragged files", e);
-                    return false;
-                }
-            }
-        });
     }
     
     private JPanel createModDetailsPanel() {
@@ -1369,7 +1296,7 @@ public class MainWindow extends JFrame {
     private Image createDefaultIcon() {
         // Try to load the logo from resources
         try {
-            InputStream logoStream = getClass().getResourceAsStream("/StellarServerForge.png");
+            InputStream logoStream = getClass().getResourceAsStream("/images/stellar-logo.png");
             if (logoStream != null) {
                 BufferedImage logo = ImageIO.read(logoStream);
                 logoStream.close();
@@ -1704,22 +1631,6 @@ public class MainWindow extends JFrame {
      * Scan for local mods and display them
      */
     private void scanAndDisplayMods() {
-        // Create progress dialog
-        JDialog progressDialog = new JDialog(this, "Scanning Mods", true);
-        progressDialog.setSize(300, 100);
-        progressDialog.setLocationRelativeTo(this);
-        
-        JPanel progressPanel = new JPanel(new BorderLayout());
-        progressPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        
-        JLabel statusLabel = new JLabel("Scanning mods directory...");
-        JProgressBar progressBar = new JProgressBar();
-        progressBar.setIndeterminate(true);
-        
-        progressPanel.add(statusLabel, BorderLayout.NORTH);
-        progressPanel.add(progressBar, BorderLayout.CENTER);
-        progressDialog.add(progressPanel);
-        
         SwingWorker<List<ModInfo>, Void> worker = new SwingWorker<List<ModInfo>, Void>() {
             @Override
             protected List<ModInfo> doInBackground() throws Exception {
@@ -1728,7 +1639,6 @@ public class MainWindow extends JFrame {
             
             @Override
             protected void done() {
-                progressDialog.dispose();
                 try {
                     List<ModInfo> mods = get();
                     updateModList(mods);
@@ -1741,8 +1651,6 @@ public class MainWindow extends JFrame {
                             "No Mods Found", JOptionPane.INFORMATION_MESSAGE);
                     } else {
                         logger.info("Successfully scanned {} mods", mods.size());
-                        // Update status bar
-                        updateStatusBar("Loaded " + mods.size() + " mods");
                     }
                 } catch (Exception e) {
                     logger.error("Error scanning mods: {}", e.getMessage());
@@ -1756,9 +1664,7 @@ public class MainWindow extends JFrame {
                 }
             }
         };
-        
         worker.execute();
-        progressDialog.setVisible(true);
     }
     
     /**
@@ -1960,7 +1866,6 @@ public class MainWindow extends JFrame {
                 JTable modTable = (JTable) tablePanel.getClientProperty("modTable");
                 
                 if (modTable != null) {
-                    @SuppressWarnings("unchecked")
                     TableRowSorter<DefaultTableModel> sorter = 
                         (TableRowSorter<DefaultTableModel>) modTable.getRowSorter();
                     
@@ -2154,7 +2059,7 @@ public class MainWindow extends JFrame {
      */
     private ImageIcon loadScaledLogo(int size) {
         try {
-            InputStream logoStream = getClass().getResourceAsStream("/StellarServerForge.png");
+            InputStream logoStream = getClass().getResourceAsStream("/logo.png");
             if (logoStream == null) {
                 return createDefaultIcon(size);
             }
@@ -2189,26 +2094,6 @@ public class MainWindow extends JFrame {
         
         g2d.dispose();
         return new ImageIcon(defaultIcon);
-    }
-    
-    /**
-     * Create a simple button icon
-     */
-    private ImageIcon createButtonIcon(String symbol, Color color) {
-        int size = 16;
-        BufferedImage icon = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g2d = icon.createGraphics();
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        
-        g2d.setColor(color);
-        g2d.setFont(new Font("Arial", Font.BOLD, 12));
-        FontMetrics fm = g2d.getFontMetrics();
-        int textWidth = fm.stringWidth(symbol);
-        int textHeight = fm.getAscent();
-        g2d.drawString(symbol, (size - textWidth) / 2, (size + textHeight) / 2);
-        
-        g2d.dispose();
-        return new ImageIcon(icon);
     }
     
     /**
@@ -2252,7 +2137,7 @@ public class MainWindow extends JFrame {
      */
     private void removeModFile(ModInfo mod) {
         try {
-            File modFile = new File(serverConfig.getServerPath() + "/mods/" + mod.getFileName());
+            File modFile = new File(mod.getFilePath());
             if (modFile.exists()) {
                 modFile.delete();
             }
@@ -2354,9 +2239,6 @@ public class MainWindow extends JFrame {
                         };
                         tableModel.addRow(row);
                     }
-                    
-                    // Update mod count in status bar
-                    updateModCount(mods.size());
                 }
                 break;
             }
@@ -2485,20 +2367,29 @@ public class MainWindow extends JFrame {
                 "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
-    
+
     /**
-     * Update the status bar with current information
+     * Update mod list display
      */
-    private void updateStatusBar(String message) {
+    private void updateModList(List<ModInfo> mods) {
+        // Find the mod management panel
         for (int i = 0; i < tabbedPane.getTabCount(); i++) {
             if ("Mod Management".equals(tabbedPane.getTitleAt(i))) {
                 JPanel modPanel = (JPanel) tabbedPane.getComponentAt(i);
-                // Find the status bar (it's the 3rd component after header and splitpane)
-                if (modPanel.getComponentCount() > 2) {
-                    JPanel statusBar = (JPanel) modPanel.getComponent(2);
-                    JLabel statusLabel = (JLabel) statusBar.getClientProperty("statusLabel");
-                    if (statusLabel != null) {
-                        statusLabel.setText(message);
+                @SuppressWarnings("unchecked")
+                JList<ModInfo> modList = (JList<ModInfo>) modPanel.getClientProperty("modList");
+                
+                if (modList != null) {
+                    DefaultListModel<ModInfo> model = (DefaultListModel<ModInfo>) modList.getModel();
+                    model.clear();
+                    for (ModInfo mod : mods) {
+                        model.addElement(mod);
+                    }
+                    
+                    // Update status
+                    JTextArea detailsArea = (JTextArea) modPanel.getClientProperty("modDetailsArea");
+                    if (detailsArea != null) {
+                        detailsArea.setText(String.format("Found %d mods in server directory", mods.size()));
                     }
                 }
                 break;
@@ -2507,21 +2398,704 @@ public class MainWindow extends JFrame {
     }
     
     /**
-     * Update mod count in status bar
+     * Update mod details display
      */
-    private void updateModCount(int count) {
+    private void updateModDetails(ModInfo mod) {
+        if (mod == null) {
+            return;
+        }
+        
+        // Find the mod management panel
         for (int i = 0; i < tabbedPane.getTabCount(); i++) {
             if ("Mod Management".equals(tabbedPane.getTitleAt(i))) {
                 JPanel modPanel = (JPanel) tabbedPane.getComponentAt(i);
-                if (modPanel.getComponentCount() > 2) {
-                    JPanel statusBar = (JPanel) modPanel.getComponent(2);
-                    JLabel modsCountLabel = (JLabel) statusBar.getClientProperty("modsCountLabel");
-                    if (modsCountLabel != null) {
-                        modsCountLabel.setText(count + " mods loaded");
+                JTextArea detailsArea = (JTextArea) modPanel.getClientProperty("modDetailsArea");
+                
+                if (detailsArea != null) {
+                    StringBuilder details = new StringBuilder();
+                    details.append("Name: ").append(mod.getName()).append("\n");
+                    details.append("File: ").append(mod.getFileName()).append("\n");
+                    details.append("Size: ").append(formatFileSize(mod.getFileSize())).append("\n");
+                    if (mod.getVersion() != null) {
+                        details.append("Version: ").append(mod.getVersion()).append("\n");
+                    }
+                    if (mod.getDescription() != null) {
+                        details.append("Description: ").append(mod.getDescription()).append("\n");
+                    }
+                    if (mod.getProjectId() != null) {
+                        details.append("Project ID: ").append(mod.getProjectId()).append("\n");
+                    }
+                    
+                    detailsArea.setText(details.toString());
+                }
+                break;
+            }
+        }
+    }
+    
+    /**
+     * Remove selected mods
+     */
+    private void removeSelectedMods() {
+        // Find the mod management panel
+        for (int i = 0; i < tabbedPane.getTabCount(); i++) {
+            if ("Mod Management".equals(tabbedPane.getTitleAt(i))) {
+                JPanel modPanel = (JPanel) tabbedPane.getComponentAt(i);
+                @SuppressWarnings("unchecked")
+                JList<ModInfo> modList = (JList<ModInfo>) modPanel.getClientProperty("modList");
+                
+                if (modList != null) {
+                    List<ModInfo> selectedMods = modList.getSelectedValuesList();
+                    if (selectedMods.isEmpty()) {
+                        JOptionPane.showMessageDialog(this, "Please select mods to remove", 
+                            "No Selection", JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
+                    
+                    String message = String.format("Are you sure you want to remove %d selected mod(s)?", 
+                        selectedMods.size());
+                    int choice = JOptionPane.showConfirmDialog(this, message, 
+                        "Confirm Remove", JOptionPane.YES_NO_OPTION);
+                    
+                    if (choice == JOptionPane.YES_OPTION) {
+                        removeModsFromServer(selectedMods);
                     }
                 }
                 break;
             }
         }
+    }
+    
+    /**
+     * Remove mods from server
+     */
+    private void removeModsFromServer(List<ModInfo> mods) {
+        SwingWorker<Void, String> worker = new SwingWorker<Void, String>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                File modsDir = new File(serverConfig.getServerPath(), "mods");
+                
+                for (ModInfo mod : mods) {
+                    File modFile = new File(modsDir, mod.getFileName());
+                    if (modFile.exists()) {
+                        if (modFile.delete()) {
+                            publish("Removed: " + mod.getName());
+                        } else {
+                            publish("Failed to remove: " + mod.getName());
+                        }
+                    }
+                }
+                
+                return null;
+            }
+            
+            @Override
+            protected void process(List<String> chunks) {
+                for (String message : chunks) {
+                    logger.info(message);
+                }
+            }
+            
+            @Override
+            protected void done() {
+                try {
+                    get();
+                    JOptionPane.showMessageDialog(MainWindow.this, 
+                        "Selected mods have been removed", 
+                        "Success", JOptionPane.INFORMATION_MESSAGE);
+                    refreshModList();
+                } catch (Exception e) {
+                    logger.error("Error removing mods: {}", e.getMessage());
+                    JOptionPane.showMessageDialog(MainWindow.this, 
+                        "Error removing mods: " + e.getMessage(), 
+                        "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        };
+        worker.execute();
+    }
+    
+    /**
+     * Refresh mod list
+     */
+    private void refreshModList() {
+        scanAndDisplayMods();
+    }
+    
+    /**
+     * Format file size for display
+     */
+    private String formatFileSize(long size) {
+        if (size <= 0) return "0 B";
+        
+        String[] units = {"B", "KB", "MB", "GB"};
+        int unitIndex = 0;
+        double fileSize = size;
+        
+        while (fileSize >= 1024 && unitIndex < units.length - 1) {
+            fileSize /= 1024;
+            unitIndex++;
+        }
+        
+        return String.format("%.1f %s", fileSize, units[unitIndex]);
+    }
+    
+    /**
+     * Custom cell renderer for mod list
+     */
+    private static class ModListCellRenderer extends DefaultListCellRenderer {
+        @Override
+        public Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                boolean isSelected, boolean cellHasFocus) {
+            super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+            
+            if (value instanceof ModInfo) {
+                ModInfo mod = (ModInfo) value;
+                setText(mod.getName() + " (" + mod.getFileName() + ")");
+                setToolTipText(mod.getDescription());
+            }
+            
+            return this;
+        }
+    }
+    
+    /**
+     * Load and scale the application logo
+     * @param size The desired size for the logo (width and height will be the same)
+     * @return ImageIcon with the scaled logo, or null if logo cannot be loaded
+     */
+    private ImageIcon loadScaledLogo(int size) {
+        try {
+            InputStream logoStream = getClass().getResourceAsStream("/images/stellar-logo.png");
+            if (logoStream != null) {
+                BufferedImage logo = ImageIO.read(logoStream);
+                logoStream.close();
+                Image scaledLogo = logo.getScaledInstance(size, size, Image.SCALE_SMOOTH);
+                return new ImageIcon(scaledLogo);
+            }
+        } catch (IOException e) {
+            logger.warn("Could not load logo: {}", e.getMessage());
+        }
+        return null;
+    }
+    
+    private JPanel createHomePanel() {
+        JPanel homePanel = new JPanel(new BorderLayout());
+        homePanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        
+        // Welcome header
+        JPanel welcomePanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        welcomePanel.setBackground(new Color(240, 248, 255));
+        welcomePanel.setBorder(BorderFactory.createLineBorder(new Color(70, 130, 180), 2));
+        
+        JLabel welcomeLabel = new JLabel("🌟 Welcome to Stellar Server Forge 🌟");
+        welcomeLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        welcomeLabel.setForeground(new Color(25, 25, 112));
+        welcomePanel.add(welcomeLabel);
+        
+        homePanel.add(welcomePanel, BorderLayout.NORTH);
+        
+        // Main content area
+        JPanel contentPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(10, 10, 10, 10);
+        gbc.fill = GridBagConstraints.BOTH;
+        
+        // Quick Stats Panel
+        JPanel statsPanel = createQuickStatsPanel();
+        gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0.5; gbc.weighty = 0.3;
+        contentPanel.add(statsPanel, gbc);
+        
+        // Recent Activity Panel
+        JPanel activityPanel = createRecentActivityPanel();
+        gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 0.5; gbc.weighty = 0.3;
+        contentPanel.add(activityPanel, gbc);
+        
+        // Quick Actions Panel
+        JPanel actionsPanel = createQuickActionsPanel();
+        gbc.gridx = 0; gbc.gridy = 1; gbc.gridwidth = 2; gbc.weightx = 1.0; gbc.weighty = 0.7;
+        contentPanel.add(actionsPanel, gbc);
+        
+        homePanel.add(contentPanel, BorderLayout.CENTER);
+        
+        return homePanel;
+    }
+    
+    private JPanel createQuickStatsPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBorder(BorderFactory.createTitledBorder("📊 Quick Stats"));
+        panel.setBackground(Color.WHITE);
+        
+        JPanel statsContent = new JPanel(new GridLayout(4, 1, 5, 5));
+        statsContent.setBackground(Color.WHITE);
+        
+        // Server Status
+        JLabel serverStatusLabel = new JLabel("Server Status: Offline");
+        serverStatusLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+        serverStatusLabel.setForeground(Color.RED);
+        statsContent.add(serverStatusLabel);
+        
+        // Mod Count
+        JLabel modCountLabel = new JLabel("Installed Mods: 0");
+        modCountLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+        statsContent.add(modCountLabel);
+        
+        // Last Launch
+        JLabel lastLaunchLabel = new JLabel("Last Launch: Never");
+        lastLaunchLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+        statsContent.add(lastLaunchLabel);
+        
+        // Version Info
+        JLabel versionLabel = new JLabel("Version: Loading...");
+        versionLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+        statsContent.add(versionLabel);
+        
+        panel.add(statsContent, BorderLayout.CENTER);
+        
+        // Update version info asynchronously
+        SwingWorker<String, Void> versionWorker = new SwingWorker<String, Void>() {
+            @Override
+            protected String doInBackground() throws Exception {
+                String mcVersion = (String) minecraftVersionCombo.getSelectedItem();
+                if (mcVersion == null) mcVersion = "1.21.1";
+                
+                List<String> versions = versionFetcher.getModLoaderVersions("neoforge", mcVersion);
+                if (!versions.isEmpty()) {
+                    return versions.get(0); // Get the latest version
+                }
+                return "Unknown";
+            }
+            
+            @Override
+            protected void done() {
+                try {
+                    String version = get();
+                    String mcVersion = (String) minecraftVersionCombo.getSelectedItem();
+                    if (mcVersion == null) mcVersion = "1.21.1";
+                    versionLabel.setText("Latest NeoForge for " + mcVersion + ": " + version);
+                } catch (Exception e) {
+                    versionLabel.setText("Latest NeoForge: Error loading");
+                }
+            }
+        };
+        versionWorker.execute();
+        
+        return panel;
+    }
+    
+    private JPanel createRecentActivityPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBorder(BorderFactory.createTitledBorder("📋 Recent Activity"));
+        panel.setBackground(Color.WHITE);
+        
+        JTextArea activityArea = new JTextArea();
+        activityArea.setEditable(false);
+        activityArea.setFont(new Font("Monospaced", Font.PLAIN, 11));
+        activityArea.setText("Welcome to Stellar Server Forge!\n\n" +
+                           "• Application started successfully\n" +
+                           "• Ready to create your server\n" +
+                           "• Check the configuration tab to begin\n");
+        
+        JScrollPane scrollPane = new JScrollPane(activityArea);
+        scrollPane.setPreferredSize(new Dimension(200, 100));
+        panel.add(scrollPane, BorderLayout.CENTER);
+        
+        return panel;
+    }
+    
+    private JPanel createQuickActionsPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBorder(BorderFactory.createTitledBorder("⚡ Quick Actions"));
+        panel.setBackground(Color.WHITE);
+        
+        JPanel buttonsPanel = new JPanel(new GridLayout(2, 3, 10, 10));
+        buttonsPanel.setBackground(Color.WHITE);
+        buttonsPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        
+        // Quick action buttons
+        JButton newServerBtn = new JButton("🆕 New Server");
+        newServerBtn.setToolTipText("Create a new server configuration");
+        newServerBtn.addActionListener(e -> {
+            // Switch to configuration tab
+            Container parent = newServerBtn.getParent();
+            while (parent != null && !(parent instanceof JTabbedPane)) {
+                parent = parent.getParent();
+            }
+            if (parent instanceof JTabbedPane) {
+                ((JTabbedPane) parent).setSelectedIndex(1);
+            }
+        });
+        
+        JButton loadConfigBtn = new JButton("📁 Load Config");
+        loadConfigBtn.setToolTipText("Load an existing server configuration");
+        loadConfigBtn.addActionListener(e -> loadConfiguration());
+        
+        JButton downloadModsBtn = new JButton("📥 Download Mods");
+        downloadModsBtn.setToolTipText("Browse and download mods");
+        downloadModsBtn.addActionListener(e -> {
+            // Switch to mod management tab
+            Container parent = downloadModsBtn.getParent();
+            while (parent != null && !(parent instanceof JTabbedPane)) {
+                parent = parent.getParent();
+            }
+            if (parent instanceof JTabbedPane) {
+                ((JTabbedPane) parent).setSelectedIndex(2);
+            }
+        });
+        
+        JButton startServerBtn = new JButton("🚀 Start Server");
+        startServerBtn.setToolTipText("Start the configured server");
+        startServerBtn.addActionListener(e -> startServer());
+        
+        JButton refreshBtn = new JButton("🔄 Refresh Versions");
+        refreshBtn.setToolTipText("Refresh mod loader versions");
+        refreshBtn.addActionListener(e -> refreshVersions());
+        
+        JButton helpBtn = new JButton("❓ Help");
+        helpBtn.setToolTipText("View help and documentation");
+        helpBtn.addActionListener(e -> showHelp());
+        
+        buttonsPanel.add(newServerBtn);
+        buttonsPanel.add(loadConfigBtn);
+        buttonsPanel.add(downloadModsBtn);
+        buttonsPanel.add(startServerBtn);
+        buttonsPanel.add(refreshBtn);
+        buttonsPanel.add(helpBtn);
+        
+        panel.add(buttonsPanel, BorderLayout.CENTER);
+        
+        return panel;
+    }
+    
+    private void refreshVersions() {
+        // Clear existing version data
+        if (modLoaderVersionCombo != null) {
+            modLoaderVersionCombo.removeAllItems();
+            modLoaderVersionCombo.addItem("Loading...");
+        }
+        
+        SwingWorker<Void, Void> refreshWorker = new SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                // Force refresh of version cache
+                versionFetcher = new ModLoaderVersionFetcher(); // Recreate to clear cache
+                return null;
+            }
+            
+            @Override
+            protected void done() {
+                loadVersionsAsync();
+                JOptionPane.showMessageDialog(MainWindow.this, 
+                    "Versions refreshed successfully!", 
+                    "Refresh Complete", 
+                    JOptionPane.INFORMATION_MESSAGE);
+            }
+        };
+        refreshWorker.execute();
+    }
+    
+    private void showHelp() {
+        String helpText = "🌟 Stellar Server Forge Help 🌟\n\n" +
+            "Getting Started:\n" +
+            "1. Go to 'Server Configuration' tab\n" +
+            "2. Select your Minecraft version\n" +
+            "3. Choose a mod loader (Forge, Fabric, NeoForge, etc.)\n" +
+            "4. Configure server settings\n" +
+            "5. Use 'Mod Management' to add mods\n" +
+            "6. Start your server from 'Server Control'\n\n" +
+            "Features:\n" +
+            "• Auto-detection of latest mod loader versions\n" +
+            "• Mod installation and management\n" +
+            "• Server configuration templates\n" +
+            "• Real-time server monitoring\n\n" +
+            "Support:\n" +
+            "• Check logs in the application folder\n" +
+            "• Ensure Java 11+ is installed\n" +
+            "• Verify internet connection for downloads\n";
+        
+        JTextArea helpArea = new JTextArea(helpText);
+        helpArea.setEditable(false);
+        helpArea.setFont(new Font("Arial", Font.PLAIN, 12));
+        
+        JScrollPane scrollPane = new JScrollPane(helpArea);
+        scrollPane.setPreferredSize(new Dimension(500, 400));
+        
+        JOptionPane.showMessageDialog(this, scrollPane, "Help", JOptionPane.INFORMATION_MESSAGE);
+    }
+    
+    private void startServer() {
+        // Quick start server implementation
+        try {
+            // Create server config from current form values
+            ServerConfig config = new ServerConfig();
+            config.setServerName(serverNameField.getText());
+            config.setServerPath(serverPathField.getText());
+            config.setMinecraftVersion((String) minecraftVersionCombo.getSelectedItem());
+            config.setModLoader((ServerConfig.ModLoader) modLoaderCombo.getSelectedItem());
+            config.setModLoaderVersion((String) modLoaderVersionCombo.getSelectedItem());
+            config.setMaxRamGb((Integer) ramSpinner.getValue());
+            config.setPort((Integer) portSpinner.getValue());
+            config.setCustomJavaPath(javaPathField.getText());
+            config.setJvmArgs(jvmArgsArea.getText());
+            config.setAutoRestart(autoRestartCheck.isSelected());
+            config.setUpnpEnabled(upnpCheck.isSelected());
+            
+            if (ServerManager.validateServerConfig(config)) {
+                if (!ServerManager.isServerDownloaded(config)) {
+                    if (!ServerManager.downloadServer(config)) {
+                        JOptionPane.showMessageDialog(this, 
+                            "Failed to download server!", 
+                            "Download Error", 
+                            JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+                }
+                
+                Process serverProcess = ServerManager.launchServer(config);
+                if (serverProcess != null) {
+                    JOptionPane.showMessageDialog(this, 
+                        "Server started successfully!", 
+                        "Server Started", 
+                        JOptionPane.INFORMATION_MESSAGE);
+                }
+            } else {
+                JOptionPane.showMessageDialog(this, 
+                    "Please configure your server first!", 
+                    "Configuration Required", 
+                    JOptionPane.WARNING_MESSAGE);
+            }
+        } catch (Exception e) {
+            logger.error("Error starting server: {}", e.getMessage());
+            JOptionPane.showMessageDialog(this, 
+                "Error starting server: " + e.getMessage(), 
+                "Server Error", 
+                JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    
+    /**
+     * Scan for local mods and display them
+     */
+    private void scanAndDisplayMods() {
+        SwingWorker<List<ModInfo>, Void> worker = new SwingWorker<List<ModInfo>, Void>() {
+            @Override
+            protected List<ModInfo> doInBackground() throws Exception {
+                return scanLocalMods();
+            }
+            
+            @Override
+            protected void done() {
+                try {
+                    List<ModInfo> mods = get();
+                    updateModList(mods);
+                    
+                    // Show status message
+                    if (mods.isEmpty()) {
+                        JOptionPane.showMessageDialog(MainWindow.this, 
+                            "No mods found in the server's mods directory.\n" +
+                            "Make sure the server path is set correctly and there are JAR files in the mods folder.", 
+                            "No Mods Found", JOptionPane.INFORMATION_MESSAGE);
+                    } else {
+                        logger.info("Successfully scanned {} mods", mods.size());
+                    }
+                } catch (Exception e) {
+                    logger.error("Error scanning mods: {}", e.getMessage());
+                    JOptionPane.showMessageDialog(MainWindow.this, 
+                        "Error scanning mods: " + e.getMessage() + "\n\n" +
+                        "Please check that:\n" +
+                        "• Server path is set correctly\n" +
+                        "• Mods directory exists and is accessible\n" +
+                        "• You have permission to read the mods folder", 
+                        "Mod Scan Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        };
+        worker.execute();
+    }
+    
+    /**
+     * Scan local mods directory
+     */
+    private List<ModInfo> scanLocalMods() {
+        List<ModInfo> mods = new ArrayList<>();
+        
+        if (serverConfig.getServerPath() == null || serverConfig.getServerPath().trim().isEmpty()) {
+            logger.warn("Server path is not set - cannot scan mods");
+            return mods;
+        }
+        
+        File modsDir = new File(serverConfig.getServerPath(), "mods");
+        if (!modsDir.exists()) {
+            logger.info("Mods directory does not exist: {}", modsDir.getAbsolutePath());
+            return mods;
+        }
+        
+        File[] modFiles = modsDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".jar"));
+        if (modFiles == null) {
+            logger.warn("Unable to list files in mods directory: {}", modsDir.getAbsolutePath());
+            return mods;
+        }
+        
+        logger.info("Scanning {} JAR files in mods directory", modFiles.length);
+        
+        for (File modFile : modFiles) {
+            try {
+                ModInfo modInfo = extractModInfo(modFile);
+                if (modInfo != null) {
+                    mods.add(modInfo);
+                }
+            } catch (Exception e) {
+                logger.warn("Error reading mod file {}: {}", modFile.getName(), e.getMessage());
+                // Create basic mod info for unreadable files
+                ModInfo basicInfo = new ModInfo();
+                basicInfo.setName(modFile.getName().replaceFirst("\\.jar$", ""));
+                basicInfo.setFileName(modFile.getName());
+                basicInfo.setDescription("Unable to read mod information - " + e.getMessage());
+                basicInfo.setFileSize(modFile.length());
+                basicInfo.setSource(ModInfo.ModSource.LOCAL);
+                mods.add(basicInfo);
+            }
+        }
+        
+        logger.info("Successfully scanned {} mods", mods.size());
+        return mods;
+    }
+    
+    /**
+     * Extract mod information from JAR file
+     */
+    private ModInfo extractModInfo(File modFile) {
+        ModInfo modInfo = new ModInfo();
+        modInfo.setFileName(modFile.getName());
+        modInfo.setName(modFile.getName().replaceFirst("\\.jar$", ""));
+        modInfo.setFileSize(modFile.length());
+        modInfo.setSource(ModInfo.ModSource.LOCAL);
+        
+        // Try to read mod metadata from various sources
+        boolean foundMetadata = false;
+        
+        try (java.util.jar.JarFile jarFile = new java.util.jar.JarFile(modFile)) {
+            // Try to read fabric.mod.json (Fabric mods)
+            java.util.jar.JarEntry fabricEntry = jarFile.getJarEntry("fabric.mod.json");
+            if (fabricEntry != null) {
+                foundMetadata = extractFabricModInfo(jarFile, fabricEntry, modInfo);
+            }
+            
+            // Try to read META-INF/mods.toml (Forge mods)
+            if (!foundMetadata) {
+                java.util.jar.JarEntry forgeEntry = jarFile.getJarEntry("META-INF/mods.toml");
+                if (forgeEntry != null) {
+                    foundMetadata = extractForgeModInfo(jarFile, forgeEntry, modInfo);
+                }
+            }
+            
+            // Try to read mcmod.info (Legacy Forge mods)
+            if (!foundMetadata) {
+                java.util.jar.JarEntry legacyEntry = jarFile.getJarEntry("mcmod.info");
+                if (legacyEntry != null) {
+                    foundMetadata = extractLegacyModInfo(jarFile, legacyEntry, modInfo);
+                }
+            }
+            
+            // Try to read neoforge.mods.toml (NeoForge mods)
+            if (!foundMetadata) {
+                java.util.jar.JarEntry neoforgeEntry = jarFile.getJarEntry("META-INF/neoforge.mods.toml");
+                if (neoforgeEntry != null) {
+                    foundMetadata = extractNeoForgeModInfo(jarFile, neoforgeEntry, modInfo);
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("Error reading JAR file {}: {}", modFile.getName(), e.getMessage());
+        }
+        
+        // If no metadata found, use filename-based info
+        if (!foundMetadata) {
+            modInfo.setDescription("Local mod file - metadata not available");
+            modInfo.setVersion("Unknown");
+        }
+        
+        return modInfo;
+    }
+    
+    /**
+     * Extract mod information from Fabric mod.json
+     */
+    private boolean extractFabricModInfo(java.util.jar.JarFile jarFile, java.util.jar.JarEntry entry, ModInfo modInfo) {
+        try (java.io.InputStream is = jarFile.getInputStream(entry)) {
+            com.google.gson.JsonObject json = new com.google.gson.Gson().fromJson(
+                new java.io.InputStreamReader(is), com.google.gson.JsonObject.class);
+            
+            if (json.has("name")) {
+                modInfo.setName(json.get("name").getAsString());
+            }
+            if (json.has("version")) {
+                modInfo.setVersion(json.get("version").getAsString());
+            }
+            if (json.has("description")) {
+                modInfo.setDescription(json.get("description").getAsString());
+            }
+            return true;
+        } catch (Exception e) {
+            logger.warn("Error reading fabric.mod.json: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Extract mod information from Forge mods.toml
+     */
+    private boolean extractForgeModInfo(java.util.jar.JarFile jarFile, java.util.jar.JarEntry entry, ModInfo modInfo) {
+        try (java.io.InputStream is = jarFile.getInputStream(entry)) {
+            java.util.Scanner scanner = new java.util.Scanner(is);
+            while (scanner.hasNextLine()) {
+                String line = scanner.nextLine().trim();
+                if (line.startsWith("displayName=")) {
+                    modInfo.setName(line.substring(12).replaceAll("\"", ""));
+                } else if (line.startsWith("version=")) {
+                    modInfo.setVersion(line.substring(8).replaceAll("\"", ""));
+                } else if (line.startsWith("description=")) {
+                    modInfo.setDescription(line.substring(12).replaceAll("\"", ""));
+                }
+            }
+            return true;
+        } catch (Exception e) {
+            logger.warn("Error reading mods.toml: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Extract mod information from legacy mcmod.info
+     */
+    private boolean extractLegacyModInfo(java.util.jar.JarFile jarFile, java.util.jar.JarEntry entry, ModInfo modInfo) {
+        try (java.io.InputStream is = jarFile.getInputStream(entry)) {
+            com.google.gson.JsonArray json = new com.google.gson.Gson().fromJson(
+                new java.io.InputStreamReader(is), com.google.gson.JsonArray.class);
+            
+            if (json.size() > 0) {
+                com.google.gson.JsonObject mod = json.get(0).getAsJsonObject();
+                if (mod.has("name")) {
+                    modInfo.setName(mod.get("name").getAsString());
+                }
+                if (mod.has("version")) {
+                    modInfo.setVersion(mod.get("version").getAsString());
+                }
+                if (mod.has("description")) {
+                    modInfo.setDescription(mod.get("description").getAsString());
+                }
+            }
+            return true;
+        } catch (Exception e) {
+            logger.warn("Error reading mcmod.info: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Extract mod information from NeoForge mods.toml
+     */
+    private boolean extractNeoForgeModInfo(java.util.jar.JarFile jarFile, java.util.jar.JarEntry entry, ModInfo modInfo) {
+        // Similar to Forge for now
+        return extractForgeModInfo(jarFile, entry, modInfo);
     }
 }

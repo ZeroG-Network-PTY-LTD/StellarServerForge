@@ -17,10 +17,13 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * CurseForge API client for Stellar Server Forge
  * Securely handles API authentication using external configuration
+ * Includes rate limiting and error handling
  */
 public class CurseForgeClient {
     private static final Logger logger = LoggerFactory.getLogger(CurseForgeClient.class);
@@ -28,29 +31,119 @@ public class CurseForgeClient {
     private static final int MINECRAFT_GAME_ID = 432;
     private static final String USER_AGENT = "StellarServerForge/1.0.0 (ZeroG Network)";
     
+    // Rate limiting
+    private static final long MIN_REQUEST_INTERVAL = 1000; // 1 second between requests
+    private static final int MAX_RETRIES = 3;
+    private static final long RETRY_DELAY = 2000; // 2 seconds
+    
     private final OkHttpClient httpClient;
     private final Gson gson;
     private final String apiKey;
+    private final AtomicLong lastRequestTime = new AtomicLong(0);
+    private boolean isApiAvailable = true;
+    private long nextRetryTime = 0;
     
     public CurseForgeClient() {
-        this.httpClient = new OkHttpClient();
+        this.httpClient = new OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .build();
         this.gson = new Gson();
         
         // Get API key from secure configuration
+        String tempApiKey = null;
         try {
-            this.apiKey = SecureConfig.getInstance().getCurseForgeApiKey();
-            logger.info("CurseForge API client initialized successfully");
+            tempApiKey = SecureConfig.getInstance().getCurseForgeApiKey();
+            if (tempApiKey == null || tempApiKey.trim().isEmpty()) {
+                logger.warn("CurseForge API key is not configured - API features will be disabled");
+                this.isApiAvailable = false;
+                tempApiKey = ""; // Set empty string to avoid null
+            } else {
+                logger.info("CurseForge API client initialized successfully");
+            }
         } catch (Exception e) {
             logger.error("Failed to initialize CurseForge API client: {}", e.getMessage());
-            throw new RuntimeException("CurseForge API client initialization failed", e);
+            this.isApiAvailable = false;
+            tempApiKey = ""; // Set empty string to avoid null
         }
+        
+        this.apiKey = tempApiKey;
     }
     
     /**
      * Check if CurseForge API is available
      */
     public boolean isAvailable() {
-        return SecureConfig.getInstance().isCurseForgeEnabled();
+        return isApiAvailable && 
+               SecureConfig.getInstance().isCurseForgeEnabled() && 
+               System.currentTimeMillis() >= nextRetryTime;
+    }
+    
+    /**
+     * Rate limiting - wait if necessary before making a request
+     */
+    private void enforceRateLimit() {
+        long currentTime = System.currentTimeMillis();
+        long timeSinceLastRequest = currentTime - lastRequestTime.get();
+        
+        if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+            try {
+                Thread.sleep(MIN_REQUEST_INTERVAL - timeSinceLastRequest);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        
+        lastRequestTime.set(System.currentTimeMillis());
+    }
+    
+    /**
+     * Execute HTTP request with retry logic
+     */
+    private Response executeWithRetry(Request request) throws IOException {
+        IOException lastException = null;
+        
+        for (int attempt = 0; attempt < MAX_RETRIES; attempt++) {
+            try {
+                enforceRateLimit();
+                Response response = httpClient.newCall(request).execute();
+                
+                if (response.code() == 429) { // Rate limited
+                    logger.warn("Rate limited by CurseForge API, attempt {}/{}", attempt + 1, MAX_RETRIES);
+                    response.close();
+                    Thread.sleep(RETRY_DELAY * (attempt + 1));
+                    continue;
+                }
+                
+                if (response.code() == 403) { // Forbidden
+                    logger.error("CurseForge API returned 403 - check API key or permissions");
+                    isApiAvailable = false;
+                    nextRetryTime = System.currentTimeMillis() + (60000 * 5); // Wait 5 minutes
+                    response.close();
+                    throw new IOException("API access forbidden");
+                }
+                
+                return response;
+                
+            } catch (IOException e) {
+                lastException = e;
+                logger.warn("Request failed, attempt {}/{}: {}", attempt + 1, MAX_RETRIES, e.getMessage());
+                
+                if (attempt < MAX_RETRIES - 1) {
+                    try {
+                        Thread.sleep(RETRY_DELAY * (attempt + 1));
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new IOException("Request interrupted", ie);
+                    }
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Request interrupted", e);
+            }
+        }
+        
+        throw lastException;
     }
     
     /**
@@ -73,7 +166,7 @@ public class CurseForgeClient {
                      .append("/mods/search")
                      .append("?gameId=").append(MINECRAFT_GAME_ID)
                      .append("&searchFilter=").append(encodedQuery)
-                     .append("&pageSize=").append(limit)
+                     .append("&pageSize=").append(Math.min(limit, 20)) // Limit to 20 to avoid overwhelming
                      .append("&sortField=2")
                      .append("&sortOrder=desc")
                      .append("&classId=6"); // Mods category
@@ -94,29 +187,27 @@ public class CurseForgeClient {
                 .addHeader("User-Agent", USER_AGENT)
                 .build();
             
-            try (Response response = httpClient.newCall(request).execute()) {
+            try (Response response = executeWithRetry(request)) {
                 if (response.isSuccessful() && response.body() != null) {
                     String responseBody = response.body().string();
                     JsonObject jsonResponse = gson.fromJson(responseBody, JsonObject.class);
                     
                     if (jsonResponse.has("data")) {
-                        JsonArray dataArray = jsonResponse.getAsJsonArray("data");
-                        for (JsonElement element : dataArray) {
-                            JsonObject modJson = element.getAsJsonObject();
-                            ModInfo mod = parseModFromJson(modJson);
+                        JsonArray modsArray = jsonResponse.getAsJsonArray("data");
+                        for (JsonElement modElement : modsArray) {
+                            JsonObject modObject = modElement.getAsJsonObject();
+                            ModInfo mod = parseModFromJson(modObject);
                             if (mod != null) {
                                 mods.add(mod);
                             }
                         }
                     }
-                    
-                    logger.info("Successfully searched CurseForge, found {} mods", mods.size());
                 } else {
-                    logger.warn("CurseForge API request failed with status: {}", response.code());
+                    logger.warn("CurseForge search request failed with code: {}", response.code());
                 }
             }
-        } catch (IOException e) {
-            logger.error("Error searching mods on CurseForge", e);
+        } catch (Exception e) {
+            logger.error("Error searching CurseForge mods: {}", e.getMessage());
         }
         
         return mods;
@@ -264,67 +355,63 @@ public class CurseForgeClient {
                 .url(projectUrl)
                 .addHeader("Accept", "application/json")
                 .addHeader("x-api-key", this.apiKey)
+                .addHeader("User-Agent", USER_AGENT)
                 .build();
             
-            Response projectResponse = httpClient.newCall(projectRequest).execute();
-            if (!projectResponse.isSuccessful()) {
-                logger.error("Failed to fetch project info: {}", projectResponse.code());
-                return null;
-            }
-            
-            JsonObject projectData = gson.fromJson(projectResponse.body().string(), JsonObject.class);
-            JsonObject project = projectData.getAsJsonObject("data");
-            
-            // Then get file info
-            String fileUrl = String.format("%s/mods/%d/files/%d", API_BASE_URL, projectId, fileId);
-            Request fileRequest = new Request.Builder()
-                .url(fileUrl)
-                .addHeader("Accept", "application/json")
-                .addHeader("x-api-key", this.apiKey)
-                .build();
-            
-            Response fileResponse = httpClient.newCall(fileRequest).execute();
-            if (!fileResponse.isSuccessful()) {
-                logger.error("Failed to fetch file info: {}", fileResponse.code());
-                return null;
-            }
-            
-            JsonObject fileData = gson.fromJson(fileResponse.body().string(), JsonObject.class);
-            JsonObject file = fileData.getAsJsonObject("data");
-            
-            // Create ModInfo
-            ModInfo mod = new ModInfo();
-            mod.setName(project.get("name").getAsString());
-            mod.setProjectId(String.valueOf(projectId));
-            mod.setFileId(String.valueOf(fileId));
-            mod.setFileName(file.get("fileName").getAsString());
-            mod.setUrl(file.get("downloadUrl").getAsString());
-            mod.setFileSize(file.get("fileLength").getAsLong());
-            mod.setDescription(project.get("summary").getAsString());
-            mod.setSource(ModInfo.ModSource.CURSEFORGE);
-            mod.setPlatform("curseforge");
-            
-            // Extract server-side compatibility
-            if (project.has("gameVersionLatestFiles")) {
-                JsonArray gameVersions = project.getAsJsonArray("gameVersionLatestFiles");
-                for (int i = 0; i < gameVersions.size(); i++) {
-                    JsonObject gameVersion = gameVersions.get(i).getAsJsonObject();
-                    if (gameVersion.has("projectFileId") && 
-                        gameVersion.get("projectFileId").getAsInt() == fileId) {
-                        
-                        if (gameVersion.has("serverPackFileId")) {
-                            mod.setServerCompatible(true);
-                            mod.setServerSide(true);
-                        }
-                        break;
+            try (Response projectResponse = executeWithRetry(projectRequest)) {
+                if (!projectResponse.isSuccessful()) {
+                    logger.warn("Failed to fetch project info for project {}: {}", projectId, projectResponse.code());
+                    return null;
+                }
+                
+                JsonObject projectData = gson.fromJson(projectResponse.body().string(), JsonObject.class);
+                JsonObject project = projectData.getAsJsonObject("data");
+                
+                // Then get file info
+                String fileUrl = String.format("%s/mods/%d/files/%d", API_BASE_URL, projectId, fileId);
+                Request fileRequest = new Request.Builder()
+                    .url(fileUrl)
+                    .addHeader("Accept", "application/json")
+                    .addHeader("x-api-key", this.apiKey)
+                    .addHeader("User-Agent", USER_AGENT)
+                    .build();
+                
+                try (Response fileResponse = executeWithRetry(fileRequest)) {
+                    if (!fileResponse.isSuccessful()) {
+                        logger.warn("Failed to fetch file info for project {} file {}: {}", projectId, fileId, fileResponse.code());
+                        return null;
                     }
+                    
+                    JsonObject fileData = gson.fromJson(fileResponse.body().string(), JsonObject.class);
+                    JsonObject file = fileData.getAsJsonObject("data");
+                    
+                    // Create ModInfo
+                    ModInfo mod = new ModInfo();
+                    mod.setName(project.get("name").getAsString());
+                    mod.setProjectId(String.valueOf(projectId));
+                    mod.setFileId(String.valueOf(fileId));
+                    mod.setFileName(file.get("fileName").getAsString());
+                    
+                    if (file.has("downloadUrl") && !file.get("downloadUrl").isJsonNull()) {
+                        mod.setUrl(file.get("downloadUrl").getAsString());
+                    }
+                    
+                    if (file.has("fileLength")) {
+                        mod.setFileSize(file.get("fileLength").getAsLong());
+                    }
+                    
+                    if (project.has("summary") && !project.get("summary").isJsonNull()) {
+                        mod.setDescription(project.get("summary").getAsString());
+                    }
+                    
+                    mod.setSource(ModInfo.ModSource.CURSEFORGE);
+                    mod.setPlatform("curseforge");
+                    
+                    return mod;
                 }
             }
-            
-            return mod;
-            
         } catch (Exception e) {
-            logger.error("Error fetching mod info for project {} file {}: {}", projectId, fileId, e.getMessage());
+            logger.error("Error getting mod info for project {} file {}: {}", projectId, fileId, e.getMessage());
             return null;
         }
     }
