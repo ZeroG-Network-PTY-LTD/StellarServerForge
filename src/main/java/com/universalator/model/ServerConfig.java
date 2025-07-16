@@ -25,7 +25,7 @@ public class ServerConfig {
         this.installedMods = new ArrayList<>();
         this.minecraftVersion = "1.20.1";
         this.modLoader = ModLoader.FORGE;
-        this.modLoaderVersion = "47.2.0";
+        this.modLoaderVersion = "Latest";
         this.javaVersion = "17";
         this.maxRamGb = 4;
         this.port = 25565;

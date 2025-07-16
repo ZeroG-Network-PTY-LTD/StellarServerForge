@@ -1,6 +1,7 @@
 package com.zerog.network.stellarforge.modpack;
 
 import com.zerog.network.stellarforge.api.CurseForgeClient;
+import com.zerog.network.stellarforge.util.ModLoaderVersionFetcher;
 
 import javax.swing.*;
 import java.awt.*;
@@ -15,6 +16,7 @@ import java.util.List;
 public class ModpackConfigDialog extends JDialog {
     
     private final ModpackManifest manifest;
+    private final ModLoaderVersionFetcher versionFetcher;
     private ModpackConfig config;
     private boolean confirmed = false;
     
@@ -29,6 +31,7 @@ public class ModpackConfigDialog extends JDialog {
     public ModpackConfigDialog(JFrame parent, ModpackManifest manifest) {
         super(parent, "Configure Modpack Import", true);
         this.manifest = manifest;
+        this.versionFetcher = new ModLoaderVersionFetcher();
         initializeComponents();
         setupLayout();
         setupEventHandlers();
@@ -189,51 +192,50 @@ public class ModpackConfigDialog extends JDialog {
         if (selectedLoader == null || selectedVersion == null) return;
         
         modLoaderVersionCombo.removeAllItems();
+        modLoaderVersionCombo.addItem("Loading...");
+        modLoaderVersionCombo.setEnabled(false);
         
-        // Add some common versions based on loader and MC version
-        List<String> versions = getModLoaderVersions(selectedLoader, selectedVersion);
-        for (String version : versions) {
-            modLoaderVersionCombo.addItem(version);
-        }
-        
-        // Pre-select from manifest if available
-        if (manifest != null && manifest.minecraft != null && manifest.minecraft.modLoaders != null) {
-            for (ModpackManifest.ModLoader loader : manifest.minecraft.modLoaders) {
-                if (loader.id.equals(selectedLoader)) {
-                    // Try to find version in manifest (this would need enhancement)
-                    break;
+        // Fetch versions asynchronously to avoid blocking the UI
+        SwingWorker<List<String>, Void> worker = new SwingWorker<List<String>, Void>() {
+            @Override
+            protected List<String> doInBackground() throws Exception {
+                return getModLoaderVersions(selectedLoader, selectedVersion);
+            }
+            
+            @Override
+            protected void done() {
+                try {
+                    List<String> versions = get();
+                    
+                    modLoaderVersionCombo.removeAllItems();
+                    for (String version : versions) {
+                        modLoaderVersionCombo.addItem(version);
+                    }
+                    modLoaderVersionCombo.setEnabled(true);
+                    
+                    // Pre-select from manifest if available
+                    if (manifest != null && manifest.minecraft != null && manifest.minecraft.modLoaders != null) {
+                        for (ModpackManifest.ModLoader loader : manifest.minecraft.modLoaders) {
+                            if (loader.id.equals(selectedLoader)) {
+                                // Try to find version in manifest (this would need enhancement)
+                                break;
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    modLoaderVersionCombo.removeAllItems();
+                    modLoaderVersionCombo.addItem("Latest");
+                    modLoaderVersionCombo.setEnabled(true);
                 }
             }
-        }
+        };
+        
+        worker.execute();
     }
     
     private List<String> getModLoaderVersions(String loader, String mcVersion) {
-        List<String> versions = new ArrayList<>();
-        
-        // This is a simplified version - in production, you'd fetch from APIs
-        switch (loader.toLowerCase()) {
-            case "forge":
-                if ("1.20.1".equals(mcVersion)) {
-                    versions.add("47.2.0");
-                    versions.add("47.1.0");
-                } else if ("1.19.4".equals(mcVersion)) {
-                    versions.add("45.1.0");
-                    versions.add("45.0.64");
-                }
-                break;
-            case "fabric":
-                versions.add("0.14.21");
-                versions.add("0.14.19");
-                break;
-            case "quilt":
-                versions.add("0.19.2");
-                versions.add("0.19.1");
-                break;
-            case "neoforge":
-                versions.add("20.4.109");
-                versions.add("20.4.108");
-                break;
-        }
+        // Use the new version fetcher for dynamic version retrieval
+        List<String> versions = versionFetcher.getModLoaderVersions(loader, mcVersion);
         
         if (versions.isEmpty()) {
             versions.add("Latest");
