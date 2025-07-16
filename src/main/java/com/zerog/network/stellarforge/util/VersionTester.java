@@ -12,20 +12,20 @@ public class VersionTester {
     private static final Logger logger = LoggerFactory.getLogger(VersionTester.class);
     
     public static void main(String[] args) {
-        ImprovedVersionFetcher fetcher = new ImprovedVersionFetcher();
+        ModLoaderVersionFetcher fetcher = new ModLoaderVersionFetcher();
         
         // Test different Minecraft versions with NeoForge
         String[] mcVersions = {"1.21.1", "1.21", "1.20.6", "1.20.5", "1.20.4", "1.20.3", "1.20.2", "1.20.1", "1.19.4", "1.19.2"};
         
         System.out.println("=== NEOFORGE VERSION TESTING ===");
         for (String mcVersion : mcVersions) {
-            List<String> versions = fetcher.getAllVersionsForMinecraft("neoforge", mcVersion);
+            List<String> versions = fetcher.getModLoaderVersions("neoforge", mcVersion);
             System.out.println("Minecraft " + mcVersion + " -> NeoForge versions: " + versions);
         }
         
         System.out.println("\n=== FORGE VERSION TESTING ===");
         for (String mcVersion : mcVersions) {
-            List<String> versions = fetcher.getAllVersionsForMinecraft("forge", mcVersion);
+            List<String> versions = fetcher.getModLoaderVersions("forge", mcVersion);
             System.out.println("Minecraft " + mcVersion + " -> Forge versions: " + versions);
         }
         

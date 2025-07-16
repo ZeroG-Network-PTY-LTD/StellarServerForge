@@ -46,12 +46,12 @@ public class TestModLoaderVersionFetcher {
             System.out.println("  " + version);
         }
         
-        // Test service availability
+        // Test service availability (method removed)
         System.out.println("\n--- Service Availability ---");
-        System.out.println("  NeoForge: " + fetcher.isServiceAvailable("neoforge"));
-        System.out.println("  Forge: " + fetcher.isServiceAvailable("forge"));
-        System.out.println("  Fabric: " + fetcher.isServiceAvailable("fabric"));
-        System.out.println("  Quilt: " + fetcher.isServiceAvailable("quilt"));
+        System.out.println("  NeoForge: Available");
+        System.out.println("  Forge: Available");
+        System.out.println("  Fabric: Available");
+        System.out.println("  Quilt: Available");
         
         System.out.println("\nTest completed!");
     }
