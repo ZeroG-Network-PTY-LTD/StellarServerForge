@@ -1091,8 +1091,25 @@ public class MainWindow extends JFrame {
     private void startServer() {
         // Quick start server implementation
         try {
-            if (serverManager != null) {
-                serverManager.launchServer();
+            ServerConfig config = getCurrentServerConfig();
+            if (config != null) {
+                if (!ServerManager.isServerDownloaded(config)) {
+                    if (!ServerManager.downloadServer(config)) {
+                        JOptionPane.showMessageDialog(this, 
+                            "Failed to download server!", 
+                            "Download Error", 
+                            JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+                }
+                
+                Process serverProcess = ServerManager.launchServer(config);
+                if (serverProcess != null) {
+                    JOptionPane.showMessageDialog(this, 
+                        "Server started successfully!", 
+                        "Server Started", 
+                        JOptionPane.INFORMATION_MESSAGE);
+                }
             } else {
                 JOptionPane.showMessageDialog(this, 
                     "Please configure your server first!", 
