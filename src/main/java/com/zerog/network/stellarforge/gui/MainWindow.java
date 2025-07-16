@@ -8,6 +8,7 @@ import com.zerog.network.stellarforge.modpack.ModpackConfig;
 import com.zerog.network.stellarforge.modpack.ModpackConfigDialog;
 import com.zerog.network.stellarforge.modpack.ModpackManifest;
 import com.zerog.network.stellarforge.api.CurseForgeClient;
+import com.zerog.network.stellarforge.util.ModLoaderVersionFetcher;
 import com.zerog.network.stellarforge.util.ImprovedVersionFetcher;
 import com.zerog.network.stellarforge.util.FileUtil;
 import com.zerog.network.stellarforge.util.ServerManager;
@@ -1059,28 +1060,23 @@ public class MainWindow extends JFrame {
     }
     
     private void showHelp() {
-        String helpText = """
-            🌟 Stellar Server Forge Help 🌟
-            
-            Getting Started:
-            1. Go to 'Server Configuration' tab
-            2. Select your Minecraft version
-            3. Choose a mod loader (Forge, Fabric, NeoForge, etc.)
-            4. Configure server settings
-            5. Use 'Mod Management' to add mods
-            6. Start your server from 'Server Control'
-            
-            Features:
-            • Auto-detection of latest mod loader versions
-            • Mod installation and management
-            • Server configuration templates
-            • Real-time server monitoring
-            
-            Support:
-            • Check logs in the application folder
-            • Ensure Java 11+ is installed
-            • Verify internet connection for downloads
-            """;
+        String helpText = "🌟 Stellar Server Forge Help 🌟\n\n" +
+            "Getting Started:\n" +
+            "1. Go to 'Server Configuration' tab\n" +
+            "2. Select your Minecraft version\n" +
+            "3. Choose a mod loader (Forge, Fabric, NeoForge, etc.)\n" +
+            "4. Configure server settings\n" +
+            "5. Use 'Mod Management' to add mods\n" +
+            "6. Start your server from 'Server Control'\n\n" +
+            "Features:\n" +
+            "• Auto-detection of latest mod loader versions\n" +
+            "• Mod installation and management\n" +
+            "• Server configuration templates\n" +
+            "• Real-time server monitoring\n\n" +
+            "Support:\n" +
+            "• Check logs in the application folder\n" +
+            "• Ensure Java 11+ is installed\n" +
+            "• Verify internet connection for downloads\n";
         
         JTextArea helpArea = new JTextArea(helpText);
         helpArea.setEditable(false);
@@ -1090,5 +1086,25 @@ public class MainWindow extends JFrame {
         scrollPane.setPreferredSize(new Dimension(500, 400));
         
         JOptionPane.showMessageDialog(this, scrollPane, "Help", JOptionPane.INFORMATION_MESSAGE);
+    }
+    
+    private void startServer() {
+        // Quick start server implementation
+        try {
+            if (serverManager != null) {
+                serverManager.launchServer();
+            } else {
+                JOptionPane.showMessageDialog(this, 
+                    "Please configure your server first!", 
+                    "Configuration Required", 
+                    JOptionPane.WARNING_MESSAGE);
+            }
+        } catch (Exception e) {
+            logger.error("Error starting server: {}", e.getMessage());
+            JOptionPane.showMessageDialog(this, 
+                "Error starting server: " + e.getMessage(), 
+                "Server Error", 
+                JOptionPane.ERROR_MESSAGE);
+        }
     }
 }
