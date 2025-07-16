@@ -1098,12 +1098,12 @@ public class MainWindow extends JFrame {
             config.setMinecraftVersion((String) minecraftVersionCombo.getSelectedItem());
             config.setModLoader((ServerConfig.ModLoader) modLoaderCombo.getSelectedItem());
             config.setModLoaderVersion((String) modLoaderVersionCombo.getSelectedItem());
-            config.setMaxRam((Integer) ramSpinner.getValue());
-            config.setServerPort((Integer) portSpinner.getValue());
-            config.setJavaPath(javaPathField.getText());
+            config.setMaxRamGb((Integer) ramSpinner.getValue());
+            config.setPort((Integer) portSpinner.getValue());
+            config.setCustomJavaPath(javaPathField.getText());
             config.setJvmArgs(jvmArgsArea.getText());
             config.setAutoRestart(autoRestartCheck.isSelected());
-            config.setEnableUpnp(upnpCheck.isSelected());
+            config.setUpnpEnabled(upnpCheck.isSelected());
             
             if (ServerManager.validateServerConfig(config)) {
                 if (!ServerManager.isServerDownloaded(config)) {
