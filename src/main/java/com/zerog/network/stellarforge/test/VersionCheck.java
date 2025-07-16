@@ -43,7 +43,6 @@ public class VersionCheck {
             }
         }
         
-        fetcher.close();
         System.out.println("\nVersion check completed!");
     }
 }

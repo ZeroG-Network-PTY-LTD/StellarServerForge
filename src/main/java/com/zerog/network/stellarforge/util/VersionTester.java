@@ -30,13 +30,11 @@ public class VersionTester {
         }
         
         System.out.println("\n=== FABRIC VERSION TESTING ===");
-        List<String> fabricVersions = fetcher.getAllVersionsForMinecraft("fabric", "1.21.1");
+        List<String> fabricVersions = fetcher.getModLoaderVersions("fabric", "1.21.1");
         System.out.println("Minecraft 1.21.1 -> Fabric versions: " + fabricVersions);
         
         System.out.println("\n=== QUILT VERSION TESTING ===");
-        List<String> quiltVersions = fetcher.getAllVersionsForMinecraft("quilt", "1.21.1");
+        List<String> quiltVersions = fetcher.getModLoaderVersions("quilt", "1.21.1");
         System.out.println("Minecraft 1.21.1 -> Quilt versions: " + quiltVersions);
-        
-        fetcher.close();
     }
 }
