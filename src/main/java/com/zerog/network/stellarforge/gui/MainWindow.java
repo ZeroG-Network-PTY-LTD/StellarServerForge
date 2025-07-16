@@ -1091,8 +1091,21 @@ public class MainWindow extends JFrame {
     private void startServer() {
         // Quick start server implementation
         try {
-            ServerConfig config = getCurrentServerConfig();
-            if (config != null) {
+            // Create server config from current form values
+            ServerConfig config = new ServerConfig();
+            config.setServerName(serverNameField.getText());
+            config.setServerPath(serverPathField.getText());
+            config.setMinecraftVersion((String) minecraftVersionCombo.getSelectedItem());
+            config.setModLoader((ServerConfig.ModLoader) modLoaderCombo.getSelectedItem());
+            config.setModLoaderVersion((String) modLoaderVersionCombo.getSelectedItem());
+            config.setMaxRam((Integer) ramSpinner.getValue());
+            config.setServerPort((Integer) portSpinner.getValue());
+            config.setJavaPath(javaPathField.getText());
+            config.setJvmArgs(jvmArgsArea.getText());
+            config.setAutoRestart(autoRestartCheck.isSelected());
+            config.setEnableUpnp(upnpCheck.isSelected());
+            
+            if (ServerManager.validateServerConfig(config)) {
                 if (!ServerManager.isServerDownloaded(config)) {
                     if (!ServerManager.downloadServer(config)) {
                         JOptionPane.showMessageDialog(this, 
