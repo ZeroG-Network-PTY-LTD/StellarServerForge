@@ -1,6 +1,6 @@
 package com.zerog.network.stellarforge.test;
 
-import com.zerog.network.stellarforge.util.ImprovedVersionFetcher;
+import com.zerog.network.stellarforge.util.ModLoaderVersionFetcher;
 import com.zerog.network.stellarforge.util.ServerManager;
 
 import java.util.List;
@@ -18,13 +18,13 @@ public class VersionCheck {
         }
         
         System.out.println("\n=== NeoForge Version Test ===");
-        ImprovedVersionFetcher fetcher = new ImprovedVersionFetcher();
+        ModLoaderVersionFetcher fetcher = new ModLoaderVersionFetcher();
         
         // Test a few key versions
         String[] testVersions = {"1.21.1", "1.21", "1.20.6", "1.20.4", "1.20.1"};
         
         for (String mcVersion : testVersions) {
-            List<String> neoforgeVersions = fetcher.getAllVersionsForMinecraft("neoforge", mcVersion);
+            List<String> neoforgeVersions = fetcher.getModLoaderVersions("neoforge", mcVersion);
             System.out.println("Minecraft " + mcVersion + " -> NeoForge: " + neoforgeVersions.size() + " versions");
             if (!neoforgeVersions.isEmpty()) {
                 System.out.println("  Latest: " + neoforgeVersions.get(0));
@@ -36,7 +36,7 @@ public class VersionCheck {
         
         System.out.println("\n=== Forge Version Test ===");
         for (String mcVersion : testVersions) {
-            List<String> forgeVersions = fetcher.getAllVersionsForMinecraft("forge", mcVersion);
+            List<String> forgeVersions = fetcher.getModLoaderVersions("forge", mcVersion);
             System.out.println("Minecraft " + mcVersion + " -> Forge: " + forgeVersions.size() + " versions");
             if (!forgeVersions.isEmpty()) {
                 System.out.println("  Latest: " + forgeVersions.get(0));
