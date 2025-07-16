@@ -435,94 +435,224 @@ public class ModLoaderVersionFetcher {
         throw new IOException("Failed to fetch Fabric version from API");
     }
     
-    /**
-     * Get Quilt versions
-     */
-    private List<String> getQuiltVersions(String minecraftVersion) throws IOException {
+    private List<String> getQuiltVersionsForMinecraft(String minecraftVersion) throws IOException {
         List<String> versions = new ArrayList<>();
         
         Request request = new Request.Builder()
-            .url(QUILT_META_URL)
+            .url(QUILT_API_URL)
             .addHeader("User-Agent", "StellarServerForge/1.0.0")
+            .addHeader("Accept", "application/json")
             .build();
         
         try (Response response = httpClient.newCall(request).execute()) {
             if (response.isSuccessful() && response.body() != null) {
-                String responseBody = response.body().string();
-                JsonArray jsonArray = gson.fromJson(responseBody, JsonArray.class);
+                String jsonResponse = response.body().string();
+                logger.debug("Quilt API response: {}", jsonResponse);
                 
-                // Get the latest stable versions
-                int count = 0;
-                for (JsonElement element : jsonArray) {
-                    if (count >= 5) break; // Limit to first 5 versions
+                JsonArray quiltVersions = JsonParser.parseString(jsonResponse).getAsJsonArray();
+                
+                for (JsonElement element : quiltVersions) {
+                    JsonObject versionObj = element.getAsJsonObject();
+                    String gameVersion = versionObj.get("gameVersion").getAsString();
+                    String loaderVersion = versionObj.get("loader").getAsJsonObject().get("version").getAsString();
                     
-                    JsonObject version = element.getAsJsonObject();
-                    if (version.has("version")) {
-                        versions.add(version.get("version").getAsString());
-                        count++;
+                    if (gameVersion.equals(minecraftVersion) && versionObj.get("loader").getAsJsonObject().get("stable").getAsBoolean()) {
+                        versions.add(loaderVersion);
                     }
                 }
+                
+                logger.info("Found {} Quilt versions for Minecraft {}", versions.size(), minecraftVersion);
             }
+        } catch (Exception e) {
+            logger.error("Error parsing Quilt API response: {}", e.getMessage());
+        }
+        
+        // If no versions found from API, use hardcoded versions
+        if (versions.isEmpty()) {
+            versions.addAll(getHardcodedQuiltVersions(minecraftVersion));
         }
         
         return versions;
     }
     
-    /**
-     * Get NeoForge versions with improved API support
-     */
-    private List<String> getNeoForgeVersions(String minecraftVersion) throws IOException {
-        List<String> versions = new ArrayList<>();
+    private String getLatestQuiltVersion() throws IOException {
+        logger.info("Fetching latest Quilt version from API...");
         
-        // Try the NeoForge API first
-        try {
-            String apiUrl = String.format("%s/%s", NEOFORGE_API_URL, minecraftVersion);
-            Request request = new Request.Builder()
-                .url(apiUrl)
-                .addHeader("User-Agent", "StellarServerForge/1.0.0")
-                .addHeader("Accept", "application/json")
-                .build();
-            
-            try (Response response = httpClient.newCall(request).execute()) {
-                if (response.isSuccessful() && response.body() != null) {
-                    String responseBody = response.body().string();
-                    JsonObject jsonResponse = gson.fromJson(responseBody, JsonObject.class);
+        Request request = new Request.Builder()
+            .url(QUILT_API_URL)
+            .addHeader("User-Agent", "StellarServerForge/1.0.0")
+            .addHeader("Accept", "application/json")
+            .build();
+        
+        try (Response response = httpClient.newCall(request).execute()) {
+            if (response.isSuccessful() && response.body() != null) {
+                String jsonResponse = response.body().string();
+                logger.debug("Quilt API response: {}", jsonResponse);
+                
+                JsonArray quiltVersions = JsonParser.parseString(jsonResponse).getAsJsonArray();
+                
+                for (JsonElement element : quiltVersions) {
+                    JsonObject versionObj = element.getAsJsonObject();
+                    JsonObject loaderObj = versionObj.get("loader").getAsJsonObject();
                     
-                    if (jsonResponse.has("versions")) {
-                        JsonArray versionsArray = jsonResponse.getAsJsonArray("versions");
-                        
-                        // Get the latest versions
-                        int count = 0;
-                        for (JsonElement element : versionsArray) {
-                            if (count >= 5) break; // Limit to first 5 versions
-                            
-                            String version = element.getAsString();
-                            versions.add(version);
-                            count++;
-                        }
+                    if (loaderObj.get("stable").getAsBoolean()) {
+                        String latest = loaderObj.get("version").getAsString();
+                        logger.info("Latest Quilt version from API: {}", latest);
+                        return latest;
                     }
                 }
+            } else {
+                logger.warn("Quilt API request failed: {} - {}", response.code(), response.message());
             }
         } catch (Exception e) {
-            logger.debug("Failed to fetch NeoForge versions from API: {}", e.getMessage());
+            logger.error("Error parsing Quilt API response: {}", e.getMessage());
         }
         
-        // If API failed, try Maven metadata
-        if (versions.isEmpty()) {
-            try {
-                Request request = new Request.Builder()
-                    .url(NEOFORGE_MAVEN_URL)
-                    .addHeader("User-Agent", "StellarServerForge/1.0.0")
-                    .addHeader("Accept", "application/json")
-                    .build();
-                
-                try (Response response = httpClient.newCall(request).execute()) {
-                    if (response.isSuccessful() && response.body() != null) {
-                        String responseBody = response.body().string();
-                        JsonObject jsonResponse = gson.fromJson(responseBody, JsonObject.class);
-                        
-                        if (jsonResponse.has("versions")) {
-                            JsonArray versionsArray = jsonResponse.getAsJsonArray("versions");
+        throw new IOException("Failed to fetch Quilt version from API");
+    }
+    
+    // Helper methods for hardcoded versions
+    private List<String> getHardcodedNeoForgeVersions(String minecraftVersion) {
+        List<String> versions = new ArrayList<>();
+        
+        switch (minecraftVersion) {
+            case "1.21.1":
+                versions.add("21.1.65");
+                versions.add("21.1.64");
+                versions.add("21.1.63");
+                break;
+            case "1.21":
+                versions.add("21.0.167");
+                versions.add("21.0.166");
+                versions.add("21.0.165");
+                break;
+            case "1.20.6":
+                versions.add("20.6.119");
+                versions.add("20.6.118");
+                versions.add("20.6.117");
+                break;
+            case "1.20.4":
+                versions.add("20.4.237");
+                versions.add("20.4.236");
+                versions.add("20.4.235");
+                break;
+            case "1.20.1":
+                versions.add("47.1.104");
+                versions.add("47.1.103");
+                versions.add("47.1.100");
+                break;
+            default:
+                versions.add("Latest");
+                break;
+        }
+        
+        return versions;
+    }
+    
+    private List<String> getHardcodedForgeVersions(String minecraftVersion) {
+        List<String> versions = new ArrayList<>();
+        
+        switch (minecraftVersion) {
+            case "1.21.1":
+                versions.add("1.21.1-52.0.17");
+                versions.add("1.21.1-52.0.16");
+                versions.add("1.21.1-52.0.15");
+                break;
+            case "1.20.1":
+                versions.add("1.20.1-47.2.0");
+                versions.add("1.20.1-47.1.0");
+                versions.add("1.20.1-47.0.35");
+                break;
+            case "1.19.4":
+                versions.add("1.19.4-45.1.0");
+                versions.add("1.19.4-45.0.64");
+                versions.add("1.19.4-45.0.43");
+                break;
+            case "1.18.2":
+                versions.add("1.18.2-40.2.0");
+                versions.add("1.18.2-40.1.0");
+                break;
+            case "1.16.5":
+                versions.add("1.16.5-36.2.0");
+                versions.add("1.16.5-36.1.0");
+                break;
+            default:
+                versions.add("Latest");
+                break;
+        }
+        
+        return versions;
+    }
+    
+    private List<String> getHardcodedFabricVersions(String minecraftVersion) {
+        List<String> versions = new ArrayList<>();
+        
+        // Fabric versions are usually stable across MC versions
+        versions.add("0.16.5");
+        versions.add("0.16.4");
+        versions.add("0.16.3");
+        versions.add("0.16.2");
+        versions.add("0.15.11");
+        
+        return versions;
+    }
+    
+    private List<String> getHardcodedQuiltVersions(String minecraftVersion) {
+        List<String> versions = new ArrayList<>();
+        
+        // Quilt versions are usually stable across MC versions
+        versions.add("0.26.4");
+        versions.add("0.26.3");
+        versions.add("0.26.2");
+        versions.add("0.26.1");
+        versions.add("0.25.15");
+        
+        return versions;
+    }
+    
+    private String getFallbackVersionForMinecraft(String modLoader, String minecraftVersion) {
+        switch (modLoader.toLowerCase()) {
+            case "neoforge":
+                return "Latest";
+            case "forge":
+                return "Latest";
+            case "fabric":
+                return "0.16.5";
+            case "quilt":
+                return "0.26.4";
+            default:
+                return "Latest";
+        }
+    }
+    
+    private int compareVersions(String version1, String version2) {
+        String[] parts1 = version1.split("\\.");
+        String[] parts2 = version2.split("\\.");
+        
+        int maxLength = Math.max(parts1.length, parts2.length);
+        
+        for (int i = 0; i < maxLength; i++) {
+            int num1 = i < parts1.length ? parseVersionNumber(parts1[i]) : 0;
+            int num2 = i < parts2.length ? parseVersionNumber(parts2[i]) : 0;
+            
+            if (num1 != num2) {
+                return Integer.compare(num1, num2);
+            }
+        }
+        
+        return 0;
+    }
+    
+    private int parseVersionNumber(String part) {
+        try {
+            // Extract numeric part (handle cases like "1.21.1-52.0.17")
+            String[] split = part.split("-");
+            return Integer.parseInt(split[0]);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+}
                             
                             // Filter versions for the specific Minecraft version
                             for (JsonElement element : versionsArray) {
