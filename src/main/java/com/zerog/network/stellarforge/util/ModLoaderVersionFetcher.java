@@ -359,37 +359,80 @@ public class ModLoaderVersionFetcher {
         throw new IOException("Failed to fetch Forge version from Maven metadata");
     }
     
-    /**
-     * Get Fabric versions
-     */
-    private List<String> getFabricVersions(String minecraftVersion) throws IOException {
+    private List<String> getFabricVersionsForMinecraft(String minecraftVersion) throws IOException {
         List<String> versions = new ArrayList<>();
         
         Request request = new Request.Builder()
-            .url(FABRIC_META_URL)
+            .url(FABRIC_API_URL)
             .addHeader("User-Agent", "StellarServerForge/1.0.0")
+            .addHeader("Accept", "application/json")
             .build();
         
         try (Response response = httpClient.newCall(request).execute()) {
             if (response.isSuccessful() && response.body() != null) {
-                String responseBody = response.body().string();
-                JsonArray jsonArray = gson.fromJson(responseBody, JsonArray.class);
+                String jsonResponse = response.body().string();
+                logger.debug("Fabric API response: {}", jsonResponse);
                 
-                // Get the latest stable versions
-                int count = 0;
-                for (JsonElement element : jsonArray) {
-                    if (count >= 5) break; // Limit to first 5 versions
+                JsonArray fabricVersions = JsonParser.parseString(jsonResponse).getAsJsonArray();
+                
+                for (JsonElement element : fabricVersions) {
+                    JsonObject versionObj = element.getAsJsonObject();
+                    String gameVersion = versionObj.get("gameVersion").getAsString();
+                    String loaderVersion = versionObj.get("loader").getAsJsonObject().get("version").getAsString();
                     
-                    JsonObject version = element.getAsJsonObject();
-                    if (version.has("version") && version.get("stable").getAsBoolean()) {
-                        versions.add(version.get("version").getAsString());
-                        count++;
+                    if (gameVersion.equals(minecraftVersion) && versionObj.get("loader").getAsJsonObject().get("stable").getAsBoolean()) {
+                        versions.add(loaderVersion);
                     }
                 }
+                
+                logger.info("Found {} Fabric versions for Minecraft {}", versions.size(), minecraftVersion);
             }
+        } catch (Exception e) {
+            logger.error("Error parsing Fabric API response: {}", e.getMessage());
+        }
+        
+        // If no versions found from API, use hardcoded versions
+        if (versions.isEmpty()) {
+            versions.addAll(getHardcodedFabricVersions(minecraftVersion));
         }
         
         return versions;
+    }
+    
+    private String getLatestFabricVersion() throws IOException {
+        logger.info("Fetching latest Fabric version from API...");
+        
+        Request request = new Request.Builder()
+            .url(FABRIC_API_URL)
+            .addHeader("User-Agent", "StellarServerForge/1.0.0")
+            .addHeader("Accept", "application/json")
+            .build();
+        
+        try (Response response = httpClient.newCall(request).execute()) {
+            if (response.isSuccessful() && response.body() != null) {
+                String jsonResponse = response.body().string();
+                logger.debug("Fabric API response: {}", jsonResponse);
+                
+                JsonArray fabricVersions = JsonParser.parseString(jsonResponse).getAsJsonArray();
+                
+                for (JsonElement element : fabricVersions) {
+                    JsonObject versionObj = element.getAsJsonObject();
+                    JsonObject loaderObj = versionObj.get("loader").getAsJsonObject();
+                    
+                    if (loaderObj.get("stable").getAsBoolean()) {
+                        String latest = loaderObj.get("version").getAsString();
+                        logger.info("Latest Fabric version from API: {}", latest);
+                        return latest;
+                    }
+                }
+            } else {
+                logger.warn("Fabric API request failed: {} - {}", response.code(), response.message());
+            }
+        } catch (Exception e) {
+            logger.error("Error parsing Fabric API response: {}", e.getMessage());
+        }
+        
+        throw new IOException("Failed to fetch Fabric version from API");
     }
     
     /**
