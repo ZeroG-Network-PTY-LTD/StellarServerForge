@@ -22,6 +22,18 @@ public class ServerConfig {
     private boolean autoRestart;
     private boolean upnpEnabled;
     private String jvmArgs;
+
+    // ── Server-properties fields ───────────────────────────────────────────────
+    private String  gameMode            = "survival";
+    private String  difficulty          = "normal";
+    private int     maxPlayers          = 20;
+    private int     viewDistance        = 10;
+    private boolean pvpEnabled          = true;
+    private boolean onlineModeEnabled   = true;
+    private boolean allowFlight         = false;
+    private boolean whitelistEnabled    = false;
+    private boolean commandBlocksEnabled= true;
+    private String  motd                = "A Minecraft Server";
     
     public ServerConfig() {
         this.installedMods = new ArrayList<>();
@@ -76,7 +88,38 @@ public class ServerConfig {
     
     public String getJvmArgs() { return jvmArgs; }
     public void setJvmArgs(String jvmArgs) { this.jvmArgs = jvmArgs; }
-    
+
+    // ── Server-properties getters/setters ─────────────────────────────────────
+    public String getGameMode() { return gameMode != null ? gameMode : "survival"; }
+    public void setGameMode(String gameMode) { this.gameMode = gameMode; }
+
+    public String getDifficulty() { return difficulty != null ? difficulty : "normal"; }
+    public void setDifficulty(String difficulty) { this.difficulty = difficulty; }
+
+    public int getMaxPlayers() { return maxPlayers > 0 ? maxPlayers : 20; }
+    public void setMaxPlayers(int maxPlayers) { this.maxPlayers = maxPlayers; }
+
+    public int getViewDistance() { return viewDistance > 0 ? viewDistance : 10; }
+    public void setViewDistance(int viewDistance) { this.viewDistance = viewDistance; }
+
+    public boolean isPvpEnabled() { return pvpEnabled; }
+    public void setPvpEnabled(boolean pvpEnabled) { this.pvpEnabled = pvpEnabled; }
+
+    public boolean isOnlineModeEnabled() { return onlineModeEnabled; }
+    public void setOnlineModeEnabled(boolean onlineModeEnabled) { this.onlineModeEnabled = onlineModeEnabled; }
+
+    public boolean isAllowFlight() { return allowFlight; }
+    public void setAllowFlight(boolean allowFlight) { this.allowFlight = allowFlight; }
+
+    public boolean isWhitelistEnabled() { return whitelistEnabled; }
+    public void setWhitelistEnabled(boolean whitelistEnabled) { this.whitelistEnabled = whitelistEnabled; }
+
+    public boolean isCommandBlocksEnabled() { return commandBlocksEnabled; }
+    public void setCommandBlocksEnabled(boolean commandBlocksEnabled) { this.commandBlocksEnabled = commandBlocksEnabled; }
+
+    public String getMotd() { return motd != null ? motd : "A Minecraft Server"; }
+    public void setMotd(String motd) { this.motd = motd; }
+
     public enum ModLoader {
         FORGE("Forge"),
         FABRIC("Fabric"),

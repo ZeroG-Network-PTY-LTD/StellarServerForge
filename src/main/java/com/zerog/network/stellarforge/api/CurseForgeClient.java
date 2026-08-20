@@ -6,6 +6,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.zerog.network.stellarforge.config.SecureConfig;
 import com.zerog.network.stellarforge.model.ModInfo;
+import com.zerog.network.stellarforge.utils.CacheManager;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -58,12 +59,20 @@ public class CurseForgeClient {
      */
     public List<ModInfo> searchMods(String query, String minecraftVersion, String modLoader, int limit) {
         List<ModInfo> mods = new ArrayList<>();
-        
+
         if (!isAvailable()) {
             logger.warn("CurseForge API is not available or not configured");
             return mods;
         }
-        
+
+        // ── Cache check ───────────────────────────────────────────────────────
+        String cacheKey = "cf-search-" + query + "-" + minecraftVersion + "-" + modLoader + "-" + limit;
+        String cached = CacheManager.getInstance().get(cacheKey);
+        if (cached != null) {
+            logger.debug("CurseForge search cache hit for: {}", query);
+            return deserializeModList(cached);
+        }
+
         try {
             // URL encode the search query
             String encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8);
@@ -111,6 +120,8 @@ public class CurseForgeClient {
                     }
                     
                     logger.info("Successfully searched CurseForge, found {} mods", mods.size());
+                    // Cache result for 1 hour
+                    CacheManager.getInstance().putSeconds(cacheKey, serializeModList(mods), 3600);
                 } else {
                     logger.warn("CurseForge API request failed with status: {}", response.code());
                 }
@@ -213,6 +224,90 @@ public class CurseForgeClient {
     }
     
     /**
+     * Get the latest compatible file for a CurseForge mod project.
+     * Returns null if no compatible file is found or the API is unavailable.
+     *
+     * @param modId           CurseForge mod ID
+     * @param minecraftVersion MC version to filter by (may be null)
+     * @param loaderType      Mod loader name, e.g. "forge" (may be null)
+     */
+    public ProjectVersion getLatestVersion(String modId, String minecraftVersion, String loaderType) {
+        if (!isAvailable() || modId == null || modId.isEmpty()) return null;
+
+        String cacheKey = "cf-latest-" + modId + "-" + minecraftVersion + "-" + loaderType;
+        String cached = CacheManager.getInstance().get(cacheKey);
+        if (cached != null) {
+            // Cached as "fileId||displayName||downloadUrl" (downloadUrl may be empty)
+            String[] parts = cached.split("\\|\\|", 3);
+            if (parts.length == 3) {
+                return new ProjectVersion(parts[0], parts[1],
+                        parts[2].isEmpty() ? null : parts[2]);
+            }
+        }
+
+        try {
+            StringBuilder urlBuilder = new StringBuilder(
+                    API_BASE_URL + "/mods/" + modId + "/files?pageSize=1&sortField=1&sortOrder=desc")
+                    .append("&gameId=").append(MINECRAFT_GAME_ID);
+
+            if (minecraftVersion != null && !minecraftVersion.isEmpty()) {
+                urlBuilder.append("&gameVersion=")
+                          .append(URLEncoder.encode(minecraftVersion, StandardCharsets.UTF_8));
+            }
+            if (loaderType != null && !loaderType.isEmpty()) {
+                urlBuilder.append("&modLoaderType=").append(getModLoaderTypeId(loaderType));
+            }
+
+            Request request = new Request.Builder()
+                .url(urlBuilder.toString())
+                .addHeader("Accept", "application/json")
+                .addHeader("x-api-key", apiKey)
+                .addHeader("User-Agent", USER_AGENT)
+                .build();
+
+            try (Response response = httpClient.newCall(request).execute()) {
+                if (response.isSuccessful() && response.body() != null) {
+                    JsonObject json = gson.fromJson(response.body().string(), JsonObject.class);
+                    if (json.has("data") && json.getAsJsonArray("data").size() > 0) {
+                        JsonObject file = json.getAsJsonArray("data").get(0).getAsJsonObject();
+                        String fileId      = file.has("id")          ? file.get("id").getAsString()          : null;
+                        String displayName = file.has("displayName") ? file.get("displayName").getAsString() : null;
+                        String dlUrl       = (file.has("downloadUrl") && !file.get("downloadUrl").isJsonNull())
+                                             ? file.get("downloadUrl").getAsString() : null;
+
+                        if (fileId != null) {
+                            // Cache for 6 hours
+                            String cacheVal = fileId + "||" + (displayName != null ? displayName : "")
+                                            + "||" + (dlUrl != null ? dlUrl : "");
+                            CacheManager.getInstance().putSeconds(cacheKey, cacheVal, 21600);
+                            return new ProjectVersion(fileId, displayName, dlUrl);
+                        }
+                    }
+                } else {
+                    logger.warn("CurseForge latest-version API returned status {} for mod {}",
+                            response.code(), modId);
+                }
+            }
+        } catch (IOException e) {
+            logger.error("Error getting latest version from CurseForge for mod {}", modId, e);
+        }
+        return null;
+    }
+
+    /** Holds the latest file ID, display name, and download URL for a CurseForge mod. */
+    public static class ProjectVersion {
+        public final String fileId;
+        public final String displayName;
+        public final String downloadUrl;
+
+        public ProjectVersion(String fileId, String displayName, String downloadUrl) {
+            this.fileId      = fileId;
+            this.displayName = displayName;
+            this.downloadUrl = downloadUrl;
+        }
+    }
+
+    /**
      * Get mod details by project ID
      */
     public ModInfo getModDetails(String projectId) {
@@ -255,34 +350,77 @@ public class CurseForgeClient {
             mod.setDescription(modJson.get("summary").getAsString());
             mod.setProjectId(modJson.get("id").getAsString());
             mod.setSource(ModInfo.ModSource.CURSEFORGE);
-            
+
+            // Author
+            if (modJson.has("authors") && modJson.getAsJsonArray("authors").size() > 0) {
+                mod.setAuthor(modJson.getAsJsonArray("authors").get(0)
+                        .getAsJsonObject().get("name").getAsString());
+            }
+
+            // Download count
+            if (modJson.has("downloadCount")) {
+                mod.setDownloadCount(modJson.get("downloadCount").getAsLong());
+            }
+
+            // Icon / thumbnail
+            if (modJson.has("logo") && !modJson.get("logo").isJsonNull()) {
+                JsonObject logo = modJson.getAsJsonObject("logo");
+                if (logo.has("thumbnailUrl")) {
+                    mod.setIconUrl(logo.get("thumbnailUrl").getAsString());
+                }
+            }
+
+            // Categories
+            if (modJson.has("categories")) {
+                List<String> cats = new java.util.ArrayList<>();
+                for (com.google.gson.JsonElement el : modJson.getAsJsonArray("categories")) {
+                    if (el.getAsJsonObject().has("name"))
+                        cats.add(el.getAsJsonObject().get("name").getAsString());
+                }
+                mod.setCategories(cats);
+            }
+
             // Set website URL
             if (modJson.has("links") && modJson.getAsJsonObject("links").has("websiteUrl")) {
                 mod.setUrl(modJson.getAsJsonObject("links").get("websiteUrl").getAsString());
             }
-            
+
             // Get latest file info
             if (modJson.has("latestFiles") && modJson.getAsJsonArray("latestFiles").size() > 0) {
                 JsonObject latestFile = modJson.getAsJsonArray("latestFiles").get(0).getAsJsonObject();
                 mod.setFileName(latestFile.get("fileName").getAsString());
                 mod.setFileId(latestFile.get("id").getAsString());
                 mod.setFileSize(latestFile.get("fileLength").getAsLong());
-                
-                // Get download URL if available
-                if (latestFile.has("downloadUrl")) {
+
+                if (latestFile.has("downloadUrl") && !latestFile.get("downloadUrl").isJsonNull()) {
                     mod.setUrl(latestFile.get("downloadUrl").getAsString());
                 }
-                
-                // Get game versions
+
                 if (latestFile.has("gameVersions") && latestFile.getAsJsonArray("gameVersions").size() > 0) {
                     mod.setMinecraftVersion(latestFile.getAsJsonArray("gameVersions").get(0).getAsString());
                 }
             }
-            
+
             return mod;
         } catch (Exception e) {
             logger.error("Error parsing mod from JSON", e);
             return null;
+        }
+    }
+
+    // ── Cache serialization ───────────────────────────────────────────────────
+
+    private String serializeModList(List<ModInfo> mods) {
+        return gson.toJson(mods);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<ModInfo> deserializeModList(String json) {
+        try {
+            return gson.fromJson(json,
+                    new com.google.gson.reflect.TypeToken<List<ModInfo>>(){}.getType());
+        } catch (Exception e) {
+            return new java.util.ArrayList<>();
         }
     }
     

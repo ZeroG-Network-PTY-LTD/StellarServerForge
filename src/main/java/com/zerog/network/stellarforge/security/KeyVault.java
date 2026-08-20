@@ -21,6 +21,9 @@ public class KeyVault {
     // Optional Modrinth key
     private static final String ENCRYPTED_MODRINTH_KEY = "ENCRYPTED_MODRINTH_PLACEHOLDER";
     
+    // Optional Modrinth Client ID
+    private static final String ENCRYPTED_MODRINTH_CLIENT_ID = "ENCRYPTED_MODRINTH_CLIENT_ID_PLACEHOLDER";
+    
     private static final String ALGORITHM = "AES";
     private static final String TRANSFORMATION = "AES/ECB/PKCS5Padding";
     
@@ -56,8 +59,10 @@ public class KeyVault {
      * Decrypt an encrypted API key
      */
     private static String decryptKey(String encryptedKey) {
-        if ("ENCRYPTED_KEY_PLACEHOLDER".equals(encryptedKey) || 
-            "ENCRYPTED_MODRINTH_PLACEHOLDER".equals(encryptedKey)) {
+        if (encryptedKey == null || encryptedKey.isEmpty() ||
+            "ENCRYPTED_KEY_PLACEHOLDER".equals(encryptedKey) || 
+            "ENCRYPTED_MODRINTH_PLACEHOLDER".equals(encryptedKey) ||
+            "ENCRYPTED_MODRINTH_CLIENT_ID_PLACEHOLDER".equals(encryptedKey)) {
             return null; // Not configured
         }
         
@@ -67,27 +72,33 @@ public class KeyVault {
             byte[] decrypted = cipher.doFinal(Base64.getDecoder().decode(encryptedKey));
             return new String(decrypted, StandardCharsets.UTF_8);
         } catch (Exception e) {
-            System.err.println("Warning: Failed to decrypt API key - may be corrupted");
+            // Security: Silently fail to prevent information leakage
             return null;
         }
     }
     
     /**
      * Get the embedded CurseForge API key
+     * Protected by AES-256 encryption
      */
     public static String getCurseForgeApiKey() {
-        String key = decryptKey(ENCRYPTED_CURSEFORGE_KEY);
-        if (key == null) {
-            System.err.println("Warning: CurseForge API key not properly configured");
-        }
-        return key;
+        return decryptKey(ENCRYPTED_CURSEFORGE_KEY);
     }
     
     /**
      * Get the embedded Modrinth API key
+     * Protected by AES-256 encryption
      */
     public static String getModrinthApiKey() {
         return decryptKey(ENCRYPTED_MODRINTH_KEY);
+    }
+    
+    /**
+     * Get the embedded Modrinth Client ID
+     * Protected by AES-256 encryption
+     */
+    public static String getModrinthClientId() {
+        return decryptKey(ENCRYPTED_MODRINTH_CLIENT_ID);
     }
     
     /**
