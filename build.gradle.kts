@@ -20,6 +20,7 @@ repositories {
 dependencies {
     implementation("com.fasterxml.jackson.core:jackson-databind:2.18.2")
     implementation("org.bitlet:weupnp:0.1.4")
+    implementation("com.electronwill.night-config:toml:3.8.1")
 
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
