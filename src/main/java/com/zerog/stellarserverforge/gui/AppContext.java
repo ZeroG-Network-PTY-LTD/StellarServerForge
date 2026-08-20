@@ -1,6 +1,10 @@
 package com.zerog.stellarserverforge.gui;
 
 import com.zerog.stellarserverforge.javamanaged.JavaProvisioningService;
+import com.zerog.stellarserverforge.modloader.FabricQuiltInstaller;
+import com.zerog.stellarserverforge.modloader.ForgeNeoForgeInstaller;
+import com.zerog.stellarserverforge.modloader.ModLoaderMetadataService;
+import com.zerog.stellarserverforge.modloader.ModLoaderVersionResolver;
 import com.zerog.stellarserverforge.mojang.MojangManifestService;
 import com.zerog.stellarserverforge.mojang.VanillaInstallService;
 import com.zerog.stellarserverforge.net_port.PortConflictService;
@@ -23,6 +27,10 @@ public class AppContext {
     public final ServerPropertiesService serverPropertiesService;
     public final EulaService eulaService;
     public final PortConflictService portConflictService;
+    public final ModLoaderMetadataService modLoaderMetadataService;
+    public final ModLoaderVersionResolver modLoaderVersionResolver;
+    public final ForgeNeoForgeInstaller forgeNeoForgeInstaller;
+    public final FabricQuiltInstaller fabricQuiltInstaller;
 
     public AppContext(Path serverDir) {
         this.serverDir = serverDir;
@@ -35,5 +43,9 @@ public class AppContext {
         this.serverPropertiesService = new ServerPropertiesService(serverDir);
         this.eulaService = new EulaService(serverDir);
         this.portConflictService = new PortConflictService();
+        this.modLoaderMetadataService = new ModLoaderMetadataService(cacheDir);
+        this.modLoaderVersionResolver = new ModLoaderVersionResolver();
+        this.forgeNeoForgeInstaller = new ForgeNeoForgeInstaller(cacheDir, serverDir);
+        this.fabricQuiltInstaller = new FabricQuiltInstaller(cacheDir, serverDir);
     }
 }

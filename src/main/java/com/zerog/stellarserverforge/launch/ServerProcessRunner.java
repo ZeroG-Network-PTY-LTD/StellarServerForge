@@ -27,7 +27,14 @@ public class ServerProcessRunner {
         return process != null && process.isAlive();
     }
 
-    public void start(String javaCommand, List<String> jvmArgs, String jarFileName, Consumer<String> onOutputLine)
+    /**
+     * @param jvmArgs  {@code -Xmx}, tuning, and other JVM flags (spec §8) — everything before
+     *                 the launch target.
+     * @param tailArgs the launch target and anything after it, e.g. {@code ["-jar", "server.jar", "nogui"]}
+     *                 for vanilla/Fabric/Quilt/legacy-Forge, or {@code ["@libraries/.../win_args.txt", "nogui"]}
+     *                 for modern Forge/NeoForge (spec §6.7).
+     */
+    public void start(String javaCommand, List<String> jvmArgs, List<String> tailArgs, Consumer<String> onOutputLine)
             throws IOException {
         if (isRunning()) {
             throw new IllegalStateException("A server process is already running");
@@ -36,9 +43,7 @@ public class ServerProcessRunner {
         List<String> command = new java.util.ArrayList<>();
         command.add(javaCommand);
         command.addAll(jvmArgs);
-        command.add("-jar");
-        command.add(jarFileName);
-        command.add("nogui");
+        command.addAll(tailArgs);
 
         ProcessBuilder builder = new ProcessBuilder(command)
                 .directory(workingDirectory.toFile())
