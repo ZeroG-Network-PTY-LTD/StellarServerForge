@@ -48,6 +48,7 @@ public class DashboardPanel extends JPanel {
     private final JButton portButton = new JButton("Change Port");
     private final JButton upnpButton = new JButton("UPnP...");
     private final JButton firewallButton = new JButton("Check Firewall");
+    private final JButton modsButton = new JButton("Mods...");
     private final JCheckBox autoRestartCheckbox = new JCheckBox("Auto-restart on crash (up to 5x)");
 
     private final JTextArea console = new JTextArea();
@@ -107,6 +108,7 @@ public class DashboardPanel extends JPanel {
         panel.add(portButton);
         panel.add(upnpButton);
         panel.add(firewallButton);
+        panel.add(modsButton);
         panel.add(autoRestartCheckbox);
         panel.add(settingsButton);
 
@@ -118,7 +120,14 @@ public class DashboardPanel extends JPanel {
         portButton.addActionListener(e -> onChangePort());
         upnpButton.addActionListener(e -> onOpenUpnp());
         firewallButton.addActionListener(e -> onCheckFirewall());
+        modsButton.addActionListener(e -> onOpenMods());
         return panel;
+    }
+
+    private void onOpenMods() {
+        Window window = SwingUtilities.getWindowAncestor(this);
+        Frame owner = window instanceof Frame ? (Frame) window : null;
+        new ModsDialog(owner, ctx, settings).setVisible(true);
     }
 
     private void onChangePort() {
