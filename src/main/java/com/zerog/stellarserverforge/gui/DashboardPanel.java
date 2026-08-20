@@ -3,6 +3,7 @@ package com.zerog.stellarserverforge.gui;
 import com.zerog.stellarserverforge.javamanaged.JavaProvisioningService;
 import com.zerog.stellarserverforge.launch.LaunchArgsBuilder;
 import com.zerog.stellarserverforge.launch.ServerProcessRunner;
+import com.zerog.stellarserverforge.model.JavaOverrideMode;
 import com.zerog.stellarserverforge.model.McVersion;
 import com.zerog.stellarserverforge.model.ModLoader;
 import com.zerog.stellarserverforge.model.ServerSettings;
@@ -35,11 +36,14 @@ public class DashboardPanel extends JPanel {
     private final JLabel javaVersionLabel = new JLabel();
     private final JLabel ramLabel = new JLabel();
     private final JLabel portLabel = new JLabel();
+    private final JLabel javaOverrideLabel = new JLabel();
     private final JLabel statusLabel = new JLabel("Idle");
 
     private final JButton launchButton = new JButton("Launch");
     private final JButton stopButton = new JButton("Stop");
     private final JButton settingsButton = new JButton("Re-enter Settings");
+    private final JButton ramButton = new JButton("Change RAM");
+    private final JButton javaOverrideButton = new JButton("Cycle Java Mode");
 
     private final JTextArea console = new JTextArea();
 
@@ -72,6 +76,8 @@ public class DashboardPanel extends JPanel {
         panel.add(ramLabel);
         panel.add(new JLabel("Port:"));
         panel.add(portLabel);
+        panel.add(new JLabel("Java mode:"));
+        panel.add(javaOverrideLabel);
         panel.add(new JLabel("Status:"));
         panel.add(statusLabel);
         return panel;
@@ -89,12 +95,47 @@ public class DashboardPanel extends JPanel {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         panel.add(launchButton);
         panel.add(stopButton);
+        panel.add(ramButton);
+        panel.add(javaOverrideButton);
         panel.add(settingsButton);
 
         launchButton.addActionListener(this::onLaunch);
         stopButton.addActionListener(this::onStop);
         settingsButton.addActionListener(e -> onReenterSettings.run());
+        ramButton.addActionListener(e -> onChangeRam());
+        javaOverrideButton.addActionListener(e -> onCycleJavaOverride());
         return panel;
+    }
+
+    private void onChangeRam() {
+        JSpinner spinner = new JSpinner(new SpinnerNumberModel(settings.getMaxRamGigs(), 1, 128, 1));
+        int result = JOptionPane.showConfirmDialog(this, spinner, "Maximum RAM (GB)",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (result == JOptionPane.OK_OPTION) {
+            settings.setMaxRamGigs((Integer) spinner.getValue());
+            persistSettings();
+            refreshLabels();
+        }
+    }
+
+    private void onCycleJavaOverride() {
+        JavaOverrideMode next = switch (settings.getJavaOverrideMode()) {
+            case AUTOMATIC -> JavaOverrideMode.SYSTEM_PATH;
+            case SYSTEM_PATH -> JavaOverrideMode.FORCE_MANAGED;
+            case FORCE_MANAGED -> JavaOverrideMode.AUTOMATIC;
+        };
+        settings.setJavaOverrideMode(next);
+        persistSettings();
+        refreshLabels();
+    }
+
+    private void persistSettings() {
+        try {
+            ctx.settingsService.save(settings);
+        } catch (java.io.IOException e) {
+            JOptionPane.showMessageDialog(this, "Could not save settings.json: " + e.getMessage(),
+                    "Save failed", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     private void refreshLabels() {
@@ -105,6 +146,11 @@ public class DashboardPanel extends JPanel {
         javaVersionLabel.setText(String.valueOf(settings.getJavaVersion()));
         ramLabel.setText(settings.getMaxRamGigs() + " GB");
         portLabel.setText(String.valueOf(settings.getPort()));
+        javaOverrideLabel.setText(switch (settings.getJavaOverrideMode()) {
+            case AUTOMATIC -> "Automatic (detect or download)";
+            case SYSTEM_PATH -> "System PATH java";
+            case FORCE_MANAGED -> "Force managed (Adoptium)";
+        });
     }
 
     private void appendConsole(String line) {

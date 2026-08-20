@@ -199,6 +199,11 @@ public class SetupWizardPanel extends JPanel {
         new SwingWorker<Optional<String>, Void>() {
             @Override
             protected Optional<String> doInBackground() throws Exception {
+                var preflight = ctx.networkPreflightService.checkModLoaderAndMojangHosts(chosenModLoader);
+                if (!preflight.ok()) {
+                    throw new java.io.IOException("Could not resolve: " + String.join(", ", preflight.unresolvedHosts())
+                            + " — check your internet connection or try a public DNS server (1.1.1.1 or 8.8.8.8).");
+                }
                 Path metadataFile = ctx.modLoaderMetadataService.ensureMetadataFile(chosenModLoader, validatedMcVersion);
                 Path promotionsFile = chosenModLoader == ModLoader.FORGE
                         ? ctx.modLoaderMetadataService.ensurePromotionsFile()

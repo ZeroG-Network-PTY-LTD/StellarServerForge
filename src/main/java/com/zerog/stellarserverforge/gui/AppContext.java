@@ -7,6 +7,7 @@ import com.zerog.stellarserverforge.modloader.ModLoaderMetadataService;
 import com.zerog.stellarserverforge.modloader.ModLoaderVersionResolver;
 import com.zerog.stellarserverforge.mojang.MojangManifestService;
 import com.zerog.stellarserverforge.mojang.VanillaInstallService;
+import com.zerog.stellarserverforge.net.NetworkPreflightService;
 import com.zerog.stellarserverforge.net_port.PortConflictService;
 import com.zerog.stellarserverforge.settings.EulaService;
 import com.zerog.stellarserverforge.settings.ServerPropertiesService;
@@ -31,6 +32,7 @@ public class AppContext {
     public final ModLoaderVersionResolver modLoaderVersionResolver;
     public final ForgeNeoForgeInstaller forgeNeoForgeInstaller;
     public final FabricQuiltInstaller fabricQuiltInstaller;
+    public final NetworkPreflightService networkPreflightService;
 
     public AppContext(Path serverDir) {
         this.serverDir = serverDir;
@@ -47,5 +49,6 @@ public class AppContext {
         this.modLoaderVersionResolver = new ModLoaderVersionResolver();
         this.forgeNeoForgeInstaller = new ForgeNeoForgeInstaller(cacheDir, serverDir);
         this.fabricQuiltInstaller = new FabricQuiltInstaller(cacheDir, serverDir);
+        this.networkPreflightService = new NetworkPreflightService();
     }
 }
