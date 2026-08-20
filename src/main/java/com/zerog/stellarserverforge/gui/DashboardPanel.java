@@ -1,5 +1,9 @@
 package com.zerog.stellarserverforge.gui;
 
+import com.zerog.stellarserverforge.gui.theme.StellarButton;
+import com.zerog.stellarserverforge.gui.theme.StellarLabels;
+import com.zerog.stellarserverforge.gui.theme.StellarPanel;
+import com.zerog.stellarserverforge.gui.theme.StellarTheme;
 import com.zerog.stellarserverforge.javamanaged.JavaProvisioningService;
 import com.zerog.stellarserverforge.launch.LaunchArgsBuilder;
 import com.zerog.stellarserverforge.launch.LogDiagnostics;
@@ -32,25 +36,25 @@ public class DashboardPanel extends JPanel {
     private ServerSettings settings;
     private final ServerProcessRunner runner;
 
-    private final JLabel mcVersionLabel = new JLabel();
-    private final JLabel modLoaderLabel = new JLabel();
-    private final JLabel javaVersionLabel = new JLabel();
-    private final JLabel ramLabel = new JLabel();
-    private final JLabel portLabel = new JLabel();
-    private final JLabel javaOverrideLabel = new JLabel();
-    private final JLabel statusLabel = new JLabel("Idle");
+    private final JLabel mcVersionLabel = StellarLabels.value("");
+    private final JLabel modLoaderLabel = StellarLabels.value("");
+    private final JLabel javaVersionLabel = StellarLabels.value("");
+    private final JLabel ramLabel = StellarLabels.value("");
+    private final JLabel portLabel = StellarLabels.value("");
+    private final JLabel javaOverrideLabel = StellarLabels.value("");
+    private final StatusPill statusPill = new StatusPill();
 
-    private final JButton launchButton = new JButton("Launch");
-    private final JButton stopButton = new JButton("Stop");
-    private final JButton settingsButton = new JButton("Re-enter Settings");
-    private final JButton ramButton = new JButton("Change RAM");
-    private final JButton javaOverrideButton = new JButton("Cycle Java Mode");
-    private final JButton portButton = new JButton("Change Port");
-    private final JButton upnpButton = new JButton("UPnP...");
-    private final JButton firewallButton = new JButton("Check Firewall");
-    private final JButton modsButton = new JButton("Mods...");
-    private final JButton utilitiesButton = new JButton("Utilities...");
-    private final JButton curseForgeButton = new JButton("Import CurseForge...");
+    private final StellarButton launchButton = new StellarButton("▶ Launch", StellarButton.Variant.PRIMARY);
+    private final StellarButton stopButton = new StellarButton("■ Stop", StellarButton.Variant.DANGER);
+    private final StellarButton settingsButton = new StellarButton("Re-enter Settings");
+    private final StellarButton ramButton = new StellarButton("Change RAM");
+    private final StellarButton javaOverrideButton = new StellarButton("Cycle Java Mode");
+    private final StellarButton portButton = new StellarButton("Change Port");
+    private final StellarButton upnpButton = new StellarButton("UPnP...");
+    private final StellarButton firewallButton = new StellarButton("Check Firewall");
+    private final StellarButton modsButton = new StellarButton("Mods...");
+    private final StellarButton utilitiesButton = new StellarButton("Utilities...");
+    private final StellarButton curseForgeButton = new StellarButton("Import CurseForge...");
     private final JCheckBox autoRestartCheckbox = new JCheckBox("Auto-restart on crash (up to 5x)");
 
     private final JTextArea console = new JTextArea();
@@ -63,8 +67,9 @@ public class DashboardPanel extends JPanel {
         this.onReenterSettings = onReenterSettings;
         this.runner = new ServerProcessRunner(ctx.serverDir);
 
-        setLayout(new BorderLayout(10, 10));
-        setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        setOpaque(false);
+        setLayout(new BorderLayout(14, 14));
+        setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
 
         add(buildHeader(), BorderLayout.NORTH);
         add(buildConsole(), BorderLayout.CENTER);
@@ -75,46 +80,87 @@ public class DashboardPanel extends JPanel {
     }
 
     private JComponent buildHeader() {
-        JPanel panel = new JPanel(new GridLayout(0, 2, 8, 4));
-        panel.add(new JLabel("Minecraft version:"));
-        panel.add(mcVersionLabel);
-        panel.add(new JLabel("Modloader:"));
-        panel.add(modLoaderLabel);
-        panel.add(new JLabel("Java version:"));
-        panel.add(javaVersionLabel);
-        panel.add(new JLabel("Max RAM:"));
-        panel.add(ramLabel);
-        panel.add(new JLabel("Port:"));
-        panel.add(portLabel);
-        panel.add(new JLabel("Java mode:"));
-        panel.add(javaOverrideLabel);
-        panel.add(new JLabel("Status:"));
-        panel.add(statusLabel);
-        return panel;
+        StellarPanel card = new StellarPanel(new BorderLayout());
+        card.setBorder(BorderFactory.createEmptyBorder(16, 20, 16, 20));
+
+        JLabel title = StellarLabels.title("Mission Control");
+        JPanel titleRow = new JPanel(new BorderLayout());
+        titleRow.setOpaque(false);
+        titleRow.add(title, BorderLayout.WEST);
+        titleRow.add(statusPill, BorderLayout.EAST);
+        card.add(titleRow, BorderLayout.NORTH);
+
+        JPanel grid = new JPanel(new GridLayout(0, 4, 18, 6));
+        grid.setOpaque(false);
+        grid.setBorder(BorderFactory.createEmptyBorder(12, 0, 0, 0));
+        addStat(grid, "Minecraft", mcVersionLabel);
+        addStat(grid, "Modloader", modLoaderLabel);
+        addStat(grid, "Java", javaVersionLabel);
+        addStat(grid, "Max RAM", ramLabel);
+        addStat(grid, "Port", portLabel);
+        addStat(grid, "Java Mode", javaOverrideLabel);
+        card.add(grid, BorderLayout.CENTER);
+
+        return card;
+    }
+
+    private void addStat(JPanel grid, String label, JLabel valueLabel) {
+        JPanel cell = new JPanel();
+        cell.setOpaque(false);
+        cell.setLayout(new BoxLayout(cell, BoxLayout.Y_AXIS));
+        cell.add(StellarLabels.muted(label.toUpperCase()));
+        cell.add(valueLabel);
+        grid.add(cell);
     }
 
     private JComponent buildConsole() {
         console.setEditable(false);
-        console.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+        console.setFont(StellarTheme.FONT_MONO);
+        console.setBackground(StellarTheme.VOID_BLACK);
+        console.setForeground(StellarTheme.STAR_CYAN);
+        console.setCaretColor(StellarTheme.STAR_CYAN);
+        console.setBorder(BorderFactory.createEmptyBorder(10, 12, 10, 12));
+
         JScrollPane scroll = new JScrollPane(console);
-        scroll.setBorder(BorderFactory.createTitledBorder("Console"));
-        return scroll;
+        scroll.setBorder(BorderFactory.createLineBorder(StellarTheme.PANEL_BORDER));
+        scroll.getViewport().setBackground(StellarTheme.VOID_BLACK);
+
+        StellarPanel card = new StellarPanel(new BorderLayout());
+        card.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
+        JLabel heading = StellarLabels.heading("  Console");
+        heading.setBorder(BorderFactory.createEmptyBorder(6, 4, 6, 0));
+        card.add(heading, BorderLayout.NORTH);
+        card.add(scroll, BorderLayout.CENTER);
+        return card;
     }
 
     private JComponent buildFooter() {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        panel.add(launchButton);
-        panel.add(stopButton);
-        panel.add(ramButton);
-        panel.add(javaOverrideButton);
-        panel.add(portButton);
-        panel.add(upnpButton);
-        panel.add(firewallButton);
-        panel.add(modsButton);
-        panel.add(utilitiesButton);
-        panel.add(curseForgeButton);
-        panel.add(autoRestartCheckbox);
-        panel.add(settingsButton);
+        StellarPanel card = new StellarPanel(new BorderLayout(0, 8));
+        card.setBorder(BorderFactory.createEmptyBorder(12, 16, 12, 16));
+
+        JPanel primaryRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        primaryRow.setOpaque(false);
+        primaryRow.add(launchButton);
+        primaryRow.add(stopButton);
+        primaryRow.add(autoRestartCheckbox);
+        autoRestartCheckbox.setOpaque(false);
+        autoRestartCheckbox.setForeground(StellarTheme.TEXT_SECONDARY);
+        autoRestartCheckbox.setFont(StellarTheme.FONT_BODY);
+
+        JPanel toolRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        toolRow.setOpaque(false);
+        toolRow.add(ramButton);
+        toolRow.add(javaOverrideButton);
+        toolRow.add(portButton);
+        toolRow.add(upnpButton);
+        toolRow.add(firewallButton);
+        toolRow.add(modsButton);
+        toolRow.add(utilitiesButton);
+        toolRow.add(curseForgeButton);
+        toolRow.add(settingsButton);
+
+        card.add(primaryRow, BorderLayout.NORTH);
+        card.add(toolRow, BorderLayout.SOUTH);
 
         launchButton.addActionListener(this::onLaunch);
         stopButton.addActionListener(this::onStop);
@@ -127,7 +173,7 @@ public class DashboardPanel extends JPanel {
         modsButton.addActionListener(e -> onOpenMods());
         utilitiesButton.addActionListener(e -> onOpenUtilities());
         curseForgeButton.addActionListener(e -> onOpenCurseForgeImport());
-        return panel;
+        return card;
     }
 
     private Frame ownerFrame() {
@@ -171,9 +217,7 @@ public class DashboardPanel extends JPanel {
     }
 
     private void onOpenUpnp() {
-        Window window = SwingUtilities.getWindowAncestor(this);
-        Frame owner = window instanceof Frame ? (Frame) window : null;
-        new UpnpDialog(owner, ctx, settings, this::refreshLabels).setVisible(true);
+        new UpnpDialog(ownerFrame(), ctx, settings, this::refreshLabels).setVisible(true);
     }
 
     private void onCheckFirewall() {
@@ -244,9 +288,9 @@ public class DashboardPanel extends JPanel {
         ramLabel.setText(settings.getMaxRamGigs() + " GB");
         portLabel.setText(String.valueOf(settings.getPort()));
         javaOverrideLabel.setText(switch (settings.getJavaOverrideMode()) {
-            case AUTOMATIC -> "Automatic (detect or download)";
-            case SYSTEM_PATH -> "System PATH java";
-            case FORCE_MANAGED -> "Force managed (Adoptium)";
+            case AUTOMATIC -> "Automatic";
+            case SYSTEM_PATH -> "System PATH";
+            case FORCE_MANAGED -> "Forced managed";
         });
     }
 
@@ -258,7 +302,7 @@ public class DashboardPanel extends JPanel {
     }
 
     private void setStatus(String status) {
-        SwingUtilities.invokeLater(() -> statusLabel.setText(status));
+        SwingUtilities.invokeLater(() -> statusPill.setStatus(status));
     }
 
     private void onLaunch(ActionEvent e) {
@@ -463,5 +507,55 @@ public class DashboardPanel extends JPanel {
     public void updateSettings(ServerSettings settings) {
         this.settings = settings;
         refreshLabels();
+    }
+
+    /** A small rounded status pill with a color-coded dot, replacing the plain "Idle"/"Running" label. */
+    private static final class StatusPill extends JPanel {
+        private String status = "Idle";
+
+        StatusPill() {
+            setOpaque(false);
+            setPreferredSize(new Dimension(140, 28));
+        }
+
+        void setStatus(String status) {
+            this.status = status;
+            repaint();
+        }
+
+        private Color dotColor() {
+            String s = status.toLowerCase();
+            if (s.contains("running")) {
+                return StellarTheme.SUCCESS_GREEN;
+            }
+            if (s.contains("fail") || s.contains("error")) {
+                return StellarTheme.ERROR_RED;
+            }
+            if (s.equals("idle")) {
+                return StellarTheme.TEXT_MUTED;
+            }
+            return StellarTheme.STELLAR_GOLD;
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            int h = getHeight();
+            int w = getWidth();
+            g2.setColor(new Color(0, 0, 0, 90));
+            g2.fillRoundRect(0, 0, w, h, h, h);
+
+            Color dot = dotColor();
+            g2.setColor(dot);
+            int dotSize = 10;
+            g2.fillOval(12, (h - dotSize) / 2, dotSize, dotSize);
+
+            g2.setFont(StellarTheme.FONT_LABEL);
+            g2.setColor(StellarTheme.TEXT_PRIMARY);
+            var fm = g2.getFontMetrics();
+            g2.drawString(status, 30, (h + fm.getAscent()) / 2 - 2);
+            g2.dispose();
+        }
     }
 }

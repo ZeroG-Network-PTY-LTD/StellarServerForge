@@ -1,6 +1,9 @@
 package com.zerog.stellarserverforge.gui;
 
 import com.zerog.stellarserverforge.curseforge.CurseForgeImportService;
+import com.zerog.stellarserverforge.gui.theme.StellarButton;
+import com.zerog.stellarserverforge.gui.theme.StellarLabels;
+import com.zerog.stellarserverforge.gui.theme.StellarTheme;
 import com.zerog.stellarserverforge.model.JavaOverrideMode;
 import com.zerog.stellarserverforge.model.McVersion;
 import com.zerog.stellarserverforge.model.ModLoader;
@@ -26,16 +29,19 @@ public class CurseForgeImportDialog extends JDialog {
 
     private final DefaultListModel<CurseForgeImportService.ProfileInfo> model = new DefaultListModel<>();
     private final JList<CurseForgeImportService.ProfileInfo> list = new JList<>(model);
-    private final JLabel statusLabel = new JLabel(" ");
+    private final JLabel statusLabel = StellarLabels.muted(" ");
 
     public CurseForgeImportDialog(Frame owner, AppContext ctx, Consumer<ServerSettings> onImported) {
         super(owner, "Import CurseForge Profile", true);
         this.ctx = ctx;
         this.onImported = onImported;
 
+        getContentPane().setBackground(StellarTheme.DEEP_SPACE);
         setLayout(new BorderLayout(10, 10));
-        ((JComponent) getContentPane()).setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        ((JComponent) getContentPane()).setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
 
+        list.setBackground(StellarTheme.DEEP_SPACE);
+        list.setForeground(StellarTheme.TEXT_PRIMARY);
         list.setCellRenderer(new DefaultListCellRenderer() {
             @Override
             public Component getListCellRendererComponent(JList<?> jList, Object value, int index, boolean isSelected, boolean cellHasFocus) {
@@ -44,12 +50,17 @@ public class CurseForgeImportDialog extends JDialog {
             }
         });
         add(new JScrollPane(list), BorderLayout.CENTER);
-        add(statusLabel, BorderLayout.NORTH);
+        JPanel north = new JPanel(new BorderLayout());
+        north.setOpaque(false);
+        north.add(StellarLabels.heading("CurseForge Warp Import"), BorderLayout.NORTH);
+        north.add(statusLabel, BorderLayout.SOUTH);
+        add(north, BorderLayout.NORTH);
 
-        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JButton browseButton = new JButton("Browse for CurseForge Instances Folder...");
-        JButton importButton = new JButton("Import Selected");
-        JButton cancelButton = new JButton("Cancel");
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        buttons.setOpaque(false);
+        StellarButton browseButton = new StellarButton("Browse for CurseForge Instances Folder...");
+        StellarButton importButton = new StellarButton("Import Selected", StellarButton.Variant.PRIMARY);
+        StellarButton cancelButton = new StellarButton("Cancel");
         buttons.add(browseButton);
         buttons.add(importButton);
         buttons.add(cancelButton);
