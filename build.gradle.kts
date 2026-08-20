@@ -1,0 +1,69 @@
+plugins {
+    java
+    application
+    id("com.gradleup.shadow") version "8.3.5"
+}
+
+group = "com.zerog.stellarserverforge"
+version = "0.1.0"
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.18.2")
+
+    testImplementation(platform("org.junit:junit-bom:5.11.4"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+}
+
+application {
+    mainClass.set("com.zerog.stellarserverforge.Main")
+}
+
+tasks.test {
+    useJUnitPlatform()
+}
+
+tasks.shadowJar {
+    archiveBaseName.set("StellarServerForge")
+    archiveClassifier.set("all")
+    archiveVersion.set(version.toString())
+    manifest {
+        attributes["Main-Class"] = "com.zerog.stellarserverforge.Main"
+    }
+}
+
+val appImageDir = layout.buildDirectory.dir("jpackage")
+
+val jpackage by tasks.registering(Exec::class) {
+    group = "distribution"
+    description = "Builds a native Windows executable (StellarServerForge.exe) via jpackage."
+    dependsOn(tasks.shadowJar)
+
+    doFirst {
+        delete(appImageDir)
+    }
+
+    val javaHome = System.getProperty("java.home")
+    val jpackageBin = if (System.getProperty("os.name").lowercase().contains("win")) "jpackage.exe" else "jpackage"
+
+    commandLine(
+        "$javaHome/bin/$jpackageBin",
+        "--type", "app-image",
+        "--name", "StellarServerForge",
+        "--app-version", version.toString(),
+        "--vendor", "ZeroG Network",
+        "--input", tasks.shadowJar.get().destinationDirectory.get().asFile.absolutePath,
+        "--main-jar", tasks.shadowJar.get().archiveFileName.get(),
+        "--main-class", "com.zerog.stellarserverforge.Main",
+        "--dest", appImageDir.get().asFile.absolutePath
+    )
+}
