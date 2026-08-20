@@ -2,6 +2,7 @@ package com.zerog.stellarserverforge.gui;
 
 import com.zerog.stellarserverforge.javamanaged.JavaProvisioningService;
 import com.zerog.stellarserverforge.launch.LaunchArgsBuilder;
+import com.zerog.stellarserverforge.launch.LogDiagnostics;
 import com.zerog.stellarserverforge.launch.ServerProcessRunner;
 import com.zerog.stellarserverforge.model.JavaOverrideMode;
 import com.zerog.stellarserverforge.model.McVersion;
@@ -44,8 +45,14 @@ public class DashboardPanel extends JPanel {
     private final JButton settingsButton = new JButton("Re-enter Settings");
     private final JButton ramButton = new JButton("Change RAM");
     private final JButton javaOverrideButton = new JButton("Cycle Java Mode");
+    private final JButton portButton = new JButton("Change Port");
+    private final JButton upnpButton = new JButton("UPnP...");
+    private final JButton firewallButton = new JButton("Check Firewall");
+    private final JCheckBox autoRestartCheckbox = new JCheckBox("Auto-restart on crash (up to 5x)");
 
     private final JTextArea console = new JTextArea();
+    private volatile String lastResolvedJavaCommand;
+    private int restartCount;
 
     public DashboardPanel(AppContext ctx, ServerSettings settings, Runnable onReenterSettings) {
         this.ctx = ctx;
@@ -97,6 +104,10 @@ public class DashboardPanel extends JPanel {
         panel.add(stopButton);
         panel.add(ramButton);
         panel.add(javaOverrideButton);
+        panel.add(portButton);
+        panel.add(upnpButton);
+        panel.add(firewallButton);
+        panel.add(autoRestartCheckbox);
         panel.add(settingsButton);
 
         launchButton.addActionListener(this::onLaunch);
@@ -104,7 +115,63 @@ public class DashboardPanel extends JPanel {
         settingsButton.addActionListener(e -> onReenterSettings.run());
         ramButton.addActionListener(e -> onChangeRam());
         javaOverrideButton.addActionListener(e -> onCycleJavaOverride());
+        portButton.addActionListener(e -> onChangePort());
+        upnpButton.addActionListener(e -> onOpenUpnp());
+        firewallButton.addActionListener(e -> onCheckFirewall());
         return panel;
+    }
+
+    private void onChangePort() {
+        JSpinner spinner = new JSpinner(new SpinnerNumberModel(Math.max(settings.getPort(), 10000), 10000, 65535, 1));
+        int result = JOptionPane.showConfirmDialog(this, spinner, "Server Port (>= 10000)",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (result != JOptionPane.OK_OPTION) {
+            return;
+        }
+        int newPort = (Integer) spinner.getValue();
+        settings.setPort(newPort);
+        persistSettings();
+        try {
+            ctx.serverPropertiesService.ensureValidAndSynced(newPort);
+        } catch (java.io.IOException ex) {
+            JOptionPane.showMessageDialog(this, "Could not sync server.properties: " + ex.getMessage(),
+                    "Sync failed", JOptionPane.WARNING_MESSAGE);
+        }
+        refreshLabels();
+    }
+
+    private void onOpenUpnp() {
+        Window window = SwingUtilities.getWindowAncestor(this);
+        Frame owner = window instanceof Frame ? (Frame) window : null;
+        new UpnpDialog(owner, ctx, settings, this::refreshLabels).setVisible(true);
+    }
+
+    private void onCheckFirewall() {
+        if (lastResolvedJavaCommand == null) {
+            JOptionPane.showMessageDialog(this, "Launch the server at least once first, so the Java executable "
+                    + "being used is known.", "Firewall check", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        firewallButton.setEnabled(false);
+        new SwingWorker<com.zerog.stellarserverforge.net_port.FirewallCheckService.Result, Void>() {
+            @Override
+            protected com.zerog.stellarserverforge.net_port.FirewallCheckService.Result doInBackground() {
+                return ctx.firewallCheckService.check(settings.getPort(), lastResolvedJavaCommand);
+            }
+
+            @Override
+            protected void done() {
+                firewallButton.setEnabled(true);
+                try {
+                    var result = get();
+                    JOptionPane.showMessageDialog(DashboardPanel.this, result.message(), "Firewall check",
+                            result.pass() ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.WARNING_MESSAGE);
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(DashboardPanel.this, "Firewall check failed: " + ex.getMessage(),
+                            "Firewall check", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }.execute();
     }
 
     private void onChangeRam() {
@@ -168,6 +235,7 @@ public class DashboardPanel extends JPanel {
         launchButton.setEnabled(false);
         settingsButton.setEnabled(false);
         console.setText("");
+        restartCount = 0;
 
         new SwingWorker<Void, Void>() {
             @Override
@@ -230,14 +298,32 @@ public class DashboardPanel extends JPanel {
         List<String> tailArgs = ensureModLoaderInstalledAndBuildTailArgs(mc, java.command());
 
         List<String> jvmArgs = LaunchArgsBuilder.buildJvmArgs(settings, settings.getJavaVersion());
+        lastResolvedJavaCommand = java.command();
+        java.nio.file.Path logFile = ctx.serverDir.resolve("logs").resolve("latest.log");
 
-        setStatus("Running");
-        SwingUtilities.invokeLater(() -> stopButton.setEnabled(true));
-        appendConsole("Launching server...");
-        runner.start(java.command(), jvmArgs, tailArgs, this::appendConsole);
+        while (true) {
+            setStatus("Running");
+            SwingUtilities.invokeLater(() -> stopButton.setEnabled(true));
+            appendConsole("Launching server...");
+            runner.start(java.command(), jvmArgs, tailArgs, this::appendConsole);
 
-        int exitCode = runner.waitForExit();
-        appendConsole("Server process exited with code " + exitCode + ".");
+            int exitCode = runner.waitForExit();
+            appendConsole("Server process exited with code " + exitCode + ".");
+
+            boolean graceful = LogDiagnostics.isGracefulStop(logFile);
+            if (!graceful && autoRestartCheckbox.isSelected() && restartCount < 5) {
+                restartCount++;
+                appendConsole("Server stopped unexpectedly — auto-restarting (attempt " + restartCount + "/5)...");
+                continue;
+            }
+            if (!graceful) {
+                for (String guidance : LogDiagnostics.diagnose(logFile)) {
+                    appendConsole(guidance);
+                }
+            }
+            break;
+        }
+
         setStatus("Idle");
         SwingUtilities.invokeLater(() -> {
             launchButton.setEnabled(true);

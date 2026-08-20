@@ -7,8 +7,11 @@ import com.zerog.stellarserverforge.modloader.ModLoaderMetadataService;
 import com.zerog.stellarserverforge.modloader.ModLoaderVersionResolver;
 import com.zerog.stellarserverforge.mojang.MojangManifestService;
 import com.zerog.stellarserverforge.mojang.VanillaInstallService;
+import com.zerog.stellarserverforge.net.IpLookupService;
 import com.zerog.stellarserverforge.net.NetworkPreflightService;
+import com.zerog.stellarserverforge.net_port.FirewallCheckService;
 import com.zerog.stellarserverforge.net_port.PortConflictService;
+import com.zerog.stellarserverforge.net_port.UpnpService;
 import com.zerog.stellarserverforge.settings.EulaService;
 import com.zerog.stellarserverforge.settings.ServerPropertiesService;
 import com.zerog.stellarserverforge.settings.SettingsService;
@@ -33,6 +36,9 @@ public class AppContext {
     public final ForgeNeoForgeInstaller forgeNeoForgeInstaller;
     public final FabricQuiltInstaller fabricQuiltInstaller;
     public final NetworkPreflightService networkPreflightService;
+    public final IpLookupService ipLookupService;
+    public final UpnpService upnpService;
+    public final FirewallCheckService firewallCheckService;
 
     public AppContext(Path serverDir) {
         this.serverDir = serverDir;
@@ -50,5 +56,8 @@ public class AppContext {
         this.forgeNeoForgeInstaller = new ForgeNeoForgeInstaller(cacheDir, serverDir);
         this.fabricQuiltInstaller = new FabricQuiltInstaller(cacheDir, serverDir);
         this.networkPreflightService = new NetworkPreflightService();
+        this.ipLookupService = new IpLookupService();
+        this.upnpService = new UpnpService();
+        this.firewallCheckService = new FirewallCheckService();
     }
 }
