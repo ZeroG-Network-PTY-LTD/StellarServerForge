@@ -1,5 +1,7 @@
 package com.zerog.stellarserverforge.gui;
 
+import com.zerog.stellarserverforge.gui.theme.StellarButton;
+import com.zerog.stellarserverforge.gui.theme.StellarTheme;
 import com.zerog.stellarserverforge.model.McVersion;
 import com.zerog.stellarserverforge.model.ServerSettings;
 
@@ -23,10 +25,13 @@ public class UtilitiesDialog extends JDialog {
         this.ctx = ctx;
         this.settings = settings;
 
+        getContentPane().setBackground(StellarTheme.DEEP_SPACE);
         setLayout(new BorderLayout(10, 10));
-        ((JComponent) getContentPane()).setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        ((JComponent) getContentPane()).setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
 
         JTabbedPane tabs = new JTabbedPane();
+        tabs.setBackground(StellarTheme.PANEL_BG_SOLID);
+        tabs.setForeground(StellarTheme.TEXT_PRIMARY);
         tabs.addTab("Icon", buildIconTab());
         tabs.addTab("Server Pack ZIP", buildZipTab());
         tabs.addTab("Run Scripts", buildRunScriptsTab());
@@ -34,11 +39,15 @@ public class UtilitiesDialog extends JDialog {
         add(tabs, BorderLayout.NORTH);
 
         logArea.setEditable(false);
+        logArea.setBackground(StellarTheme.VOID_BLACK);
+        logArea.setForeground(StellarTheme.STAR_CYAN);
+        logArea.setFont(StellarTheme.FONT_MONO);
         add(new JScrollPane(logArea), BorderLayout.CENTER);
 
-        JButton closeButton = new JButton("Close");
+        StellarButton closeButton = new StellarButton("Close");
         closeButton.addActionListener(e -> dispose());
         JPanel south = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        south.setOpaque(false);
         south.add(closeButton);
         add(south, BorderLayout.SOUTH);
 

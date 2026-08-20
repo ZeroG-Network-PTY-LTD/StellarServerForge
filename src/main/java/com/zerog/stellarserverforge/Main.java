@@ -1,9 +1,9 @@
 package com.zerog.stellarserverforge;
 
 import com.zerog.stellarserverforge.gui.MainFrame;
+import com.zerog.stellarserverforge.gui.theme.StellarTheme;
 
 import javax.swing.SwingUtilities;
-import javax.swing.UIManager;
 
 public final class Main {
 
@@ -12,11 +12,7 @@ public final class Main {
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            try {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-            } catch (Exception ignored) {
-                // Fall back to the default look and feel.
-            }
+            StellarTheme.install();
             new MainFrame().setVisible(true);
         });
     }

@@ -1,5 +1,7 @@
 package com.zerog.stellarserverforge.gui;
 
+import com.zerog.stellarserverforge.gui.theme.StarfieldPanel;
+import com.zerog.stellarserverforge.gui.theme.StellarIcon;
 import com.zerog.stellarserverforge.model.ServerSettings;
 
 import javax.swing.*;
@@ -14,7 +16,7 @@ public class MainFrame extends JFrame {
 
     private final AppContext ctx;
     private final CardLayout cardLayout = new CardLayout();
-    private final JPanel cards = new JPanel(cardLayout);
+    private final StarfieldPanel cards = new StarfieldPanel(new CardLayout());
 
     private DashboardPanel dashboardPanel;
     private SetupWizardPanel wizardPanel;
@@ -24,8 +26,12 @@ public class MainFrame extends JFrame {
         this.ctx = new AppContext(Path.of(System.getProperty("user.dir")));
 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(900, 650);
+        setSize(1000, 700);
+        setMinimumSize(new Dimension(820, 560));
         setLocationRelativeTo(null);
+        setIconImage(StellarIcon.create(64));
+
+        cards.setLayout(cardLayout);
         setContentPane(cards);
 
         wizardPanel = new SetupWizardPanel(ctx, this::onSetupComplete);

@@ -1,5 +1,8 @@
 package com.zerog.stellarserverforge.gui;
 
+import com.zerog.stellarserverforge.gui.theme.StellarButton;
+import com.zerog.stellarserverforge.gui.theme.StellarLabels;
+import com.zerog.stellarserverforge.gui.theme.StellarTheme;
 import com.zerog.stellarserverforge.model.ServerSettings;
 import com.zerog.stellarserverforge.net.IpLookupService;
 import org.bitlet.weupnp.GatewayDevice;
@@ -18,12 +21,12 @@ public class UpnpDialog extends JDialog {
     private final ServerSettings settings;
     private final Runnable onSettingsChanged;
 
-    private final JLabel statusLabel = new JLabel("Checking your connection...");
-    private final JLabel protocolLabel = new JLabel();
-    private final JButton toggleProtocolButton = new JButton("Cycle Protocol (TCP/BOTH/UDP)");
-    private final JButton activateButton = new JButton("Activate UPnP");
-    private final JButton deactivateButton = new JButton("Deactivate UPnP");
-    private final JButton closeButton = new JButton("Close");
+    private final JLabel statusLabel = StellarLabels.body("Checking your connection...");
+    private final JLabel protocolLabel = StellarLabels.muted("");
+    private final StellarButton toggleProtocolButton = new StellarButton("Cycle Protocol (TCP/BOTH/UDP)");
+    private final StellarButton activateButton = new StellarButton("Activate UPnP", StellarButton.Variant.PRIMARY);
+    private final StellarButton deactivateButton = new StellarButton("Deactivate UPnP", StellarButton.Variant.DANGER);
+    private final StellarButton closeButton = new StellarButton("Close");
 
     public UpnpDialog(Frame owner, AppContext ctx, ServerSettings settings, Runnable onSettingsChanged) {
         super(owner, "UPnP Port Forwarding", true);
@@ -31,16 +34,21 @@ public class UpnpDialog extends JDialog {
         this.settings = settings;
         this.onSettingsChanged = onSettingsChanged;
 
+        getContentPane().setBackground(StellarTheme.DEEP_SPACE);
         setLayout(new BorderLayout(10, 10));
-        ((JComponent) getContentPane()).setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        ((JComponent) getContentPane()).setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
 
         JPanel center = new JPanel();
+        center.setOpaque(false);
         center.setLayout(new BoxLayout(center, BoxLayout.Y_AXIS));
+        center.add(StellarLabels.heading("Router Uplink"));
+        center.add(Box.createVerticalStrut(8));
         center.add(statusLabel);
         center.add(protocolLabel);
         add(center, BorderLayout.CENTER);
 
-        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        buttons.setOpaque(false);
         buttons.add(toggleProtocolButton);
         buttons.add(activateButton);
         buttons.add(deactivateButton);

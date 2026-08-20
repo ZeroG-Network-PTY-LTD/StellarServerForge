@@ -1,5 +1,8 @@
 package com.zerog.stellarserverforge.gui;
 
+import com.zerog.stellarserverforge.gui.theme.StellarButton;
+import com.zerog.stellarserverforge.gui.theme.StellarLabels;
+import com.zerog.stellarserverforge.gui.theme.StellarTheme;
 import com.zerog.stellarserverforge.model.ModLoader;
 import com.zerog.stellarserverforge.model.ServerSettings;
 import com.zerog.stellarserverforge.mods.FabricQuiltModScanner;
@@ -27,7 +30,7 @@ public class ModsDialog extends JDialog {
 
     private final DefaultListModel<ModEntry> clientModsModel = new DefaultListModel<>();
     private final JList<ModEntry> clientModsList = new JList<>(clientModsModel);
-    private final JLabel statusLabel = new JLabel(" ");
+    private final JLabel statusLabel = StellarLabels.muted(" ");
     private final JTextArea infoArea = new JTextArea(6, 50);
 
     public ModsDialog(Frame owner, AppContext ctx, ServerSettings settings) {
@@ -35,15 +38,25 @@ public class ModsDialog extends JDialog {
         this.ctx = ctx;
         this.settings = settings;
 
+        getContentPane().setBackground(StellarTheme.DEEP_SPACE);
         setLayout(new BorderLayout(10, 10));
-        ((JComponent) getContentPane()).setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        ((JComponent) getContentPane()).setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
 
         infoArea.setEditable(false);
         infoArea.setLineWrap(true);
         infoArea.setWrapStyleWord(true);
-        add(new JScrollPane(infoArea), BorderLayout.NORTH);
+        infoArea.setBackground(StellarTheme.VOID_BLACK);
+        infoArea.setForeground(StellarTheme.STAR_CYAN);
+        infoArea.setFont(StellarTheme.FONT_MONO);
+        JPanel north = new JPanel(new BorderLayout());
+        north.setOpaque(false);
+        north.add(StellarLabels.heading("Cargo Bay — Mods"), BorderLayout.NORTH);
+        north.add(new JScrollPane(infoArea), BorderLayout.CENTER);
+        add(north, BorderLayout.NORTH);
 
         clientModsList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+        clientModsList.setBackground(StellarTheme.DEEP_SPACE);
+        clientModsList.setForeground(StellarTheme.TEXT_PRIMARY);
         clientModsList.setCellRenderer(new DefaultListCellRenderer() {
             @Override
             public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
@@ -55,14 +68,16 @@ public class ModsDialog extends JDialog {
         add(new JScrollPane(clientModsList), BorderLayout.CENTER);
 
         JPanel south = new JPanel(new BorderLayout());
+        south.setOpaque(false);
         south.add(statusLabel, BorderLayout.NORTH);
 
-        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JButton scanClientButton = new JButton("Scan for Client-Only Mods");
-        JButton moveButton = new JButton("Move Selected to CLIENTMODS");
-        JButton mcreatorButton = new JButton("Scan for MCreator Mods");
-        JButton listButton = new JButton("List Mods Folder");
-        JButton closeButton = new JButton("Close");
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        buttons.setOpaque(false);
+        StellarButton scanClientButton = new StellarButton("Scan for Client-Only Mods", StellarButton.Variant.PRIMARY);
+        StellarButton moveButton = new StellarButton("Move Selected to CLIENTMODS");
+        StellarButton mcreatorButton = new StellarButton("Scan for MCreator Mods");
+        StellarButton listButton = new StellarButton("List Mods Folder");
+        StellarButton closeButton = new StellarButton("Close");
         buttons.add(scanClientButton);
         buttons.add(moveButton);
         buttons.add(mcreatorButton);
