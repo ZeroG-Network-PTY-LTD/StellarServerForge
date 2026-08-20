@@ -32,7 +32,19 @@ application {
 }
 
 tasks.test {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags("live")
+    }
+}
+
+val testLive by tasks.registering(Test::class) {
+    description = "Runs live network smoke tests (real downloads against Mojang/etc) excluded from the default test task."
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform {
+        includeTags("live")
+    }
 }
 
 tasks.shadowJar {
