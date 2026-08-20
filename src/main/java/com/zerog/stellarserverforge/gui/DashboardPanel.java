@@ -3,7 +3,10 @@ package com.zerog.stellarserverforge.gui;
 import com.zerog.stellarserverforge.javamanaged.JavaProvisioningService;
 import com.zerog.stellarserverforge.launch.LaunchArgsBuilder;
 import com.zerog.stellarserverforge.launch.ServerProcessRunner;
+import com.zerog.stellarserverforge.model.McVersion;
+import com.zerog.stellarserverforge.model.ModLoader;
 import com.zerog.stellarserverforge.model.ServerSettings;
+import com.zerog.stellarserverforge.modloader.ModLoaderLaunchLine;
 import com.zerog.stellarserverforge.mojang.MojangManifestService;
 import com.zerog.stellarserverforge.settings.EulaService;
 import com.zerog.stellarserverforge.settings.ServerPropertiesService;
@@ -96,7 +99,9 @@ public class DashboardPanel extends JPanel {
 
     private void refreshLabels() {
         mcVersionLabel.setText(settings.getMinecraftVersion());
-        modLoaderLabel.setText(settings.getModLoader().name());
+        modLoaderLabel.setText(settings.getModLoader() == ModLoader.VANILLA
+                ? "VANILLA"
+                : settings.getModLoader().name() + " " + settings.getModLoaderVersion());
         javaVersionLabel.setText(String.valueOf(settings.getJavaVersion()));
         ramLabel.setText(settings.getMaxRamGigs() + " GB");
         portLabel.setText(String.valueOf(settings.getPort()));
@@ -175,23 +180,15 @@ public class DashboardPanel extends JPanel {
             handleEulaPrompt();
         }
 
-        setStatus("Locating server jar...");
-        MojangManifestService.VersionEntry version = ctx.mojangManifestService.findVersion(settings.getMinecraftVersion());
-        if (version == null) {
-            throw new IllegalStateException("Minecraft version " + settings.getMinecraftVersion() + " not found in the version list.");
-        }
-        if (!ctx.vanillaInstallService.serverJarPath(version.id()).toFile().exists()) {
-            appendConsole("Downloading vanilla server jar for " + version.id() + "...");
-        }
-        var jarPath = ctx.vanillaInstallService.ensureInstalled(version);
-        appendConsole("Server jar ready: " + jarPath.getFileName());
+        McVersion mc = McVersion.parse(settings.getMinecraftVersion());
+        List<String> tailArgs = ensureModLoaderInstalledAndBuildTailArgs(mc, java.command());
 
         List<String> jvmArgs = LaunchArgsBuilder.buildJvmArgs(settings, settings.getJavaVersion());
 
         setStatus("Running");
         SwingUtilities.invokeLater(() -> stopButton.setEnabled(true));
         appendConsole("Launching server...");
-        runner.start(java.command(), jvmArgs, jarPath.getFileName().toString(), this::appendConsole);
+        runner.start(java.command(), jvmArgs, tailArgs, this::appendConsole);
 
         int exitCode = runner.waitForExit();
         appendConsole("Server process exited with code " + exitCode + ".");
@@ -201,6 +198,51 @@ public class DashboardPanel extends JPanel {
             settingsButton.setEnabled(true);
             stopButton.setEnabled(false);
         });
+    }
+
+    private List<String> ensureModLoaderInstalledAndBuildTailArgs(McVersion mc, String javaCommand) throws Exception {
+        ModLoader loader = settings.getModLoader();
+        String loaderVersion = settings.getModLoaderVersion();
+
+        switch (loader) {
+            case VANILLA -> {
+                setStatus("Locating server jar...");
+                MojangManifestService.VersionEntry version = ctx.mojangManifestService.findVersion(settings.getMinecraftVersion());
+                if (version == null) {
+                    throw new IllegalStateException("Minecraft version " + settings.getMinecraftVersion() + " not found in the version list.");
+                }
+                if (!ctx.vanillaInstallService.serverJarPath(version.id()).toFile().exists()) {
+                    appendConsole("Downloading vanilla server jar for " + version.id() + "...");
+                }
+                var jarPath = ctx.vanillaInstallService.ensureInstalled(version);
+                appendConsole("Server jar ready: " + jarPath.getFileName());
+            }
+            case FORGE, NEOFORGE -> {
+                setStatus("Checking " + loader + " installation...");
+                if (ctx.forgeNeoForgeInstaller.isInstalled(loader, mc, loaderVersion)) {
+                    appendConsole(loader + " " + loaderVersion + " is already installed.");
+                } else {
+                    appendConsole("Installing " + loader + " " + loaderVersion + " — this can take a while...");
+                    setStatus("Installing " + loader + "...");
+                    ctx.forgeNeoForgeInstaller.install(loader, mc, loaderVersion, javaCommand,
+                            ctx.mojangManifestService, ctx.vanillaInstallService, this::appendConsole);
+                    appendConsole(loader + " " + loaderVersion + " installed.");
+                }
+            }
+            case FABRIC, QUILT -> {
+                setStatus("Checking " + loader + " installation...");
+                if (ctx.fabricQuiltInstaller.isInstalled(loader, mc, loaderVersion)) {
+                    appendConsole(loader + " " + loaderVersion + " is already installed.");
+                } else {
+                    appendConsole("Installing " + loader + " " + loaderVersion + " — this can take a while...");
+                    setStatus("Installing " + loader + "...");
+                    ctx.fabricQuiltInstaller.install(loader, mc, loaderVersion, javaCommand, this::appendConsole);
+                    appendConsole(loader + " " + loaderVersion + " installed.");
+                }
+            }
+        }
+
+        return ModLoaderLaunchLine.buildTailArgs(loader, mc, loaderVersion, ctx.serverDir);
     }
 
     private void handlePortConflict() throws Exception {
