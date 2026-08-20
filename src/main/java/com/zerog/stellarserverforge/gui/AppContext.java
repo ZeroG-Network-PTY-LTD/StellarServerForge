@@ -1,5 +1,6 @@
 package com.zerog.stellarserverforge.gui;
 
+import com.zerog.stellarserverforge.curseforge.CurseForgeImportService;
 import com.zerog.stellarserverforge.javamanaged.JavaProvisioningService;
 import com.zerog.stellarserverforge.modloader.FabricQuiltInstaller;
 import com.zerog.stellarserverforge.modloader.ForgeNeoForgeInstaller;
@@ -15,6 +16,10 @@ import com.zerog.stellarserverforge.net_port.UpnpService;
 import com.zerog.stellarserverforge.settings.EulaService;
 import com.zerog.stellarserverforge.settings.ServerPropertiesService;
 import com.zerog.stellarserverforge.settings.SettingsService;
+import com.zerog.stellarserverforge.utility.IconGeneratorService;
+import com.zerog.stellarserverforge.utility.PurgeService;
+import com.zerog.stellarserverforge.utility.RunScriptGeneratorService;
+import com.zerog.stellarserverforge.utility.ServerPackZipService;
 
 import java.nio.file.Path;
 
@@ -39,6 +44,11 @@ public class AppContext {
     public final IpLookupService ipLookupService;
     public final UpnpService upnpService;
     public final FirewallCheckService firewallCheckService;
+    public final CurseForgeImportService curseForgeImportService;
+    public final IconGeneratorService iconGeneratorService;
+    public final ServerPackZipService serverPackZipService;
+    public final RunScriptGeneratorService runScriptGeneratorService;
+    public final PurgeService purgeService;
 
     public AppContext(Path serverDir) {
         this.serverDir = serverDir;
@@ -59,5 +69,10 @@ public class AppContext {
         this.ipLookupService = new IpLookupService();
         this.upnpService = new UpnpService();
         this.firewallCheckService = new FirewallCheckService();
+        this.curseForgeImportService = new CurseForgeImportService();
+        this.iconGeneratorService = new IconGeneratorService();
+        this.serverPackZipService = new ServerPackZipService();
+        this.runScriptGeneratorService = new RunScriptGeneratorService();
+        this.purgeService = new PurgeService();
     }
 }

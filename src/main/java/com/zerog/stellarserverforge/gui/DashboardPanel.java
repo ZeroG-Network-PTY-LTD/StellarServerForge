@@ -49,6 +49,8 @@ public class DashboardPanel extends JPanel {
     private final JButton upnpButton = new JButton("UPnP...");
     private final JButton firewallButton = new JButton("Check Firewall");
     private final JButton modsButton = new JButton("Mods...");
+    private final JButton utilitiesButton = new JButton("Utilities...");
+    private final JButton curseForgeButton = new JButton("Import CurseForge...");
     private final JCheckBox autoRestartCheckbox = new JCheckBox("Auto-restart on crash (up to 5x)");
 
     private final JTextArea console = new JTextArea();
@@ -109,6 +111,8 @@ public class DashboardPanel extends JPanel {
         panel.add(upnpButton);
         panel.add(firewallButton);
         panel.add(modsButton);
+        panel.add(utilitiesButton);
+        panel.add(curseForgeButton);
         panel.add(autoRestartCheckbox);
         panel.add(settingsButton);
 
@@ -121,13 +125,30 @@ public class DashboardPanel extends JPanel {
         upnpButton.addActionListener(e -> onOpenUpnp());
         firewallButton.addActionListener(e -> onCheckFirewall());
         modsButton.addActionListener(e -> onOpenMods());
+        utilitiesButton.addActionListener(e -> onOpenUtilities());
+        curseForgeButton.addActionListener(e -> onOpenCurseForgeImport());
         return panel;
     }
 
-    private void onOpenMods() {
+    private Frame ownerFrame() {
         Window window = SwingUtilities.getWindowAncestor(this);
-        Frame owner = window instanceof Frame ? (Frame) window : null;
-        new ModsDialog(owner, ctx, settings).setVisible(true);
+        return window instanceof Frame ? (Frame) window : null;
+    }
+
+    private void onOpenMods() {
+        new ModsDialog(ownerFrame(), ctx, settings).setVisible(true);
+    }
+
+    private void onOpenUtilities() {
+        new UtilitiesDialog(ownerFrame(), ctx, settings).setVisible(true);
+    }
+
+    private void onOpenCurseForgeImport() {
+        new CurseForgeImportDialog(ownerFrame(), ctx, imported -> {
+            this.settings = imported;
+            persistSettings();
+            refreshLabels();
+        }).setVisible(true);
     }
 
     private void onChangePort() {
