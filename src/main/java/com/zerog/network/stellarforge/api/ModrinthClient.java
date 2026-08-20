@@ -6,6 +6,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.zerog.network.stellarforge.config.SecureConfig;
 import com.zerog.network.stellarforge.model.ModInfo;
+import com.zerog.network.stellarforge.utils.CacheManager;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -52,6 +53,14 @@ public class ModrinthClient {
             return mods;
         }
         
+        // ── Cache check ───────────────────────────────────────────────────────
+        String cacheKey = "mr-search-" + query + "-" + minecraftVersion + "-" + modLoader + "-" + limit;
+        String cached = CacheManager.getInstance().get(cacheKey);
+        if (cached != null) {
+            logger.debug("Modrinth search cache hit for: {}", query);
+            return deserializeModList(cached);
+        }
+
         try {
             StringBuilder urlBuilder = new StringBuilder(API_BASE_URL + "/search");
             urlBuilder.append("?query=").append(URLEncoder.encode(query, StandardCharsets.UTF_8));
@@ -96,6 +105,8 @@ public class ModrinthClient {
                     }
                     
                     logger.info("Successfully searched Modrinth, found {} mods", mods.size());
+                    // Cache result for 1 hour
+                    CacheManager.getInstance().putSeconds(cacheKey, serializeModList(mods), 3600);
                 } else {
                     logger.warn("Modrinth API request failed with status: {}", response.code());
                 }
@@ -160,6 +171,82 @@ public class ModrinthClient {
         return suggestedMods;
     }
     
+    /**
+     * Get the latest compatible version for a project.
+     * Returns null if no compatible version is found or the API is unavailable.
+     *
+     * @param projectId       Modrinth project ID
+     * @param minecraftVersion MC version to filter by (may be null)
+     * @param loaderType      Mod loader name, e.g. "fabric" (may be null)
+     */
+    public ProjectVersion getLatestVersion(String projectId, String minecraftVersion, String loaderType) {
+        if (!isAvailable() || projectId == null || projectId.isEmpty()) return null;
+
+        String cacheKey = "mr-latest-" + projectId + "-" + minecraftVersion + "-" + loaderType;
+        String cached = CacheManager.getInstance().get(cacheKey);
+        if (cached != null) {
+            int sep = cached.indexOf("||");
+            if (sep > 0) return new ProjectVersion(cached.substring(0, sep), cached.substring(sep + 2));
+        }
+
+        try {
+            StringBuilder urlBuilder = new StringBuilder(API_BASE_URL + "/project/" + projectId + "/version");
+            List<String> params = new ArrayList<>();
+            if (minecraftVersion != null && !minecraftVersion.isEmpty()) {
+                params.add("game_versions=[\"" + minecraftVersion + "\"]");
+            }
+            if (loaderType != null && !loaderType.isEmpty()) {
+                params.add("loaders=[\"" + loaderType.toLowerCase() + "\"]");
+            }
+            if (!params.isEmpty()) {
+                urlBuilder.append("?").append(String.join("&", params));
+            }
+
+            Request.Builder rb = new Request.Builder()
+                .url(urlBuilder.toString())
+                .addHeader("Accept", "application/json")
+                .addHeader("User-Agent", USER_AGENT);
+            String apiKey = SecureConfig.getInstance().getModrinthApiKey();
+            if (apiKey != null && !apiKey.isEmpty()) rb.addHeader("Authorization", apiKey);
+
+            try (Response response = httpClient.newCall(rb.build()).execute()) {
+                if (response.isSuccessful() && response.body() != null) {
+                    JsonArray versions = gson.fromJson(response.body().string(), JsonArray.class);
+                    if (versions != null && versions.size() > 0) {
+                        JsonObject latest = versions.get(0).getAsJsonObject();
+                        String versionNumber = latest.has("version_number")
+                                ? latest.get("version_number").getAsString() : null;
+                        String downloadUrl = null;
+                        if (latest.has("files") && latest.getAsJsonArray("files").size() > 0) {
+                            JsonObject file = latest.getAsJsonArray("files").get(0).getAsJsonObject();
+                            if (file.has("url")) downloadUrl = file.get("url").getAsString();
+                        }
+                        if (versionNumber != null) {
+                            // Cache for 6 hours
+                            String cacheVal = versionNumber + "||" + (downloadUrl != null ? downloadUrl : "");
+                            CacheManager.getInstance().putSeconds(cacheKey, cacheVal, 21600);
+                            return new ProjectVersion(versionNumber, downloadUrl);
+                        }
+                    }
+                }
+            }
+        } catch (IOException e) {
+            logger.error("Error getting latest version from Modrinth for project {}", projectId, e);
+        }
+        return null;
+    }
+
+    /** Holds a version number + primary download URL for a Modrinth project version. */
+    public static class ProjectVersion {
+        public final String versionNumber;
+        public final String downloadUrl;
+
+        public ProjectVersion(String versionNumber, String downloadUrl) {
+            this.versionNumber = versionNumber;
+            this.downloadUrl   = downloadUrl;
+        }
+    }
+
     /**
      * Get project versions for a specific project
      */
@@ -267,33 +354,69 @@ public class ModrinthClient {
             mod.setDescription(modJson.get("description").getAsString());
             mod.setProjectId(modJson.get("project_id").getAsString());
             mod.setSource(ModInfo.ModSource.MODRINTH);
-            
+
+            // Slug
+            if (modJson.has("slug")) mod.setSlug(modJson.get("slug").getAsString());
+
+            // Author
+            if (modJson.has("author")) mod.setAuthor(modJson.get("author").getAsString());
+
+            // Icon
+            if (modJson.has("icon_url") && !modJson.get("icon_url").isJsonNull()) {
+                mod.setIconUrl(modJson.get("icon_url").getAsString());
+            }
+
+            // Downloads
+            if (modJson.has("downloads")) {
+                mod.setDownloadCount(modJson.get("downloads").getAsLong());
+            }
+
             // Get latest version info
             if (modJson.has("latest_version")) {
                 mod.setVersion(modJson.get("latest_version").getAsString());
             }
-            
+
             // Get game versions
             if (modJson.has("versions") && modJson.getAsJsonArray("versions").size() > 0) {
                 mod.setMinecraftVersion(modJson.getAsJsonArray("versions").get(0).getAsString());
             }
-            
-            // Get categories for mod loader info
-            if (modJson.has("categories") && modJson.getAsJsonArray("categories").size() > 0) {
-                JsonArray categories = modJson.getAsJsonArray("categories");
-                for (JsonElement category : categories) {
-                    String cat = category.getAsString();
+
+            // Get categories
+            if (modJson.has("categories")) {
+                List<String> cats = new ArrayList<>();
+                for (JsonElement el : modJson.getAsJsonArray("categories")) {
+                    cats.add(el.getAsString());
+                }
+                mod.setCategories(cats);
+                // Also detect mod loader from categories
+                for (String cat : cats) {
                     if (cat.equals("forge") || cat.equals("fabric") || cat.equals("quilt") || cat.equals("neoforge")) {
                         mod.setModLoaderType(cat);
                         break;
                     }
                 }
             }
-            
+
             return mod;
         } catch (Exception e) {
             logger.error("Error parsing mod from JSON", e);
             return null;
+        }
+    }
+
+    // ── Cache serialization ───────────────────────────────────────────────────
+
+    private String serializeModList(List<ModInfo> mods) {
+        return gson.toJson(mods);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<ModInfo> deserializeModList(String json) {
+        try {
+            return gson.fromJson(json,
+                    new com.google.gson.reflect.TypeToken<List<ModInfo>>(){}.getType());
+        } catch (Exception e) {
+            return new ArrayList<>();
         }
     }
 }
