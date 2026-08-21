@@ -1,6 +1,7 @@
 package com.zerog.stellarserverforge.gui;
 
 import com.zerog.stellarserverforge.gui.theme.StellarButton;
+import com.zerog.stellarserverforge.gui.theme.StellarLabels;
 import com.zerog.stellarserverforge.gui.theme.StellarTheme;
 import com.zerog.stellarserverforge.model.McVersion;
 import com.zerog.stellarserverforge.model.ServerSettings;
@@ -32,6 +33,7 @@ public class UtilitiesDialog extends JDialog {
         JTabbedPane tabs = new JTabbedPane();
         tabs.setBackground(StellarTheme.PANEL_BG_SOLID);
         tabs.setForeground(StellarTheme.TEXT_PRIMARY);
+        tabs.setFont(StellarTheme.FONT_LABEL);
         tabs.addTab("Icon", buildIconTab());
         tabs.addTab("Server Pack ZIP", buildZipTab());
         tabs.addTab("Run Scripts", buildRunScriptsTab());
@@ -59,10 +61,17 @@ public class UtilitiesDialog extends JDialog {
         logArea.append(message + System.lineSeparator());
     }
 
-    private JPanel buildIconTab() {
+    private JPanel tabPanel() {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JButton defaultButton = new JButton("Generate Default Icon");
-        JButton customButton = new JButton("Generate Custom Icon...");
+        panel.setOpaque(false);
+        panel.setBackground(StellarTheme.DEEP_SPACE);
+        return panel;
+    }
+
+    private JPanel buildIconTab() {
+        JPanel panel = tabPanel();
+        StellarButton defaultButton = new StellarButton("Generate Default Icon", StellarButton.Variant.PRIMARY);
+        StellarButton customButton = new StellarButton("Generate Custom Icon...");
         panel.add(defaultButton);
         panel.add(customButton);
 
@@ -97,19 +106,24 @@ public class UtilitiesDialog extends JDialog {
 
     private JPanel buildZipTab() {
         JPanel panel = new JPanel(new BorderLayout());
+        panel.setOpaque(false);
+        panel.setBackground(StellarTheme.DEEP_SPACE);
         DefaultListModel<String> model = new DefaultListModel<>();
         ctx.serverPackZipService.defaultCandidates(ctx.serverDir).forEach(model::addElement);
         JList<String> list = new JList<>(model);
         list.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+        list.setBackground(StellarTheme.DEEP_SPACE);
+        list.setForeground(StellarTheme.TEXT_PRIMARY);
         for (int i = 0; i < model.size(); i++) {
             list.addSelectionInterval(i, i);
         }
         panel.add(new JScrollPane(list), BorderLayout.CENTER);
 
         JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        row.setOpaque(false);
         JTextField nameField = new JTextField(settings.getMinecraftVersion() + "-server-pack", 20);
-        JButton zipButton = new JButton("Create ZIP");
-        row.add(new JLabel("File name:"));
+        StellarButton zipButton = new StellarButton("Create ZIP", StellarButton.Variant.PRIMARY);
+        row.add(StellarLabels.body("File name:"));
         row.add(nameField);
         row.add(zipButton);
         panel.add(row, BorderLayout.SOUTH);
@@ -127,10 +141,10 @@ public class UtilitiesDialog extends JDialog {
     }
 
     private JPanel buildRunScriptsTab() {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JButton generateButton = new JButton("Generate run.sh / run.bat");
+        JPanel panel = tabPanel();
+        StellarButton generateButton = new StellarButton("Generate run.sh / run.bat", StellarButton.Variant.PRIMARY);
         panel.add(generateButton);
-        panel.add(new JLabel("(Forge/NeoForge only; launch the server at least once first.)"));
+        panel.add(StellarLabels.muted("(Forge/NeoForge only; launch the server at least once first.)"));
 
         generateButton.addActionListener(e -> {
             try {
@@ -145,10 +159,10 @@ public class UtilitiesDialog extends JDialog {
     }
 
     private JPanel buildPurgeTab() {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        panel.add(new JLabel("Deletes cached modloader installers, managed Java, and downloaded metadata "
+        JPanel panel = tabPanel();
+        panel.add(StellarLabels.muted("Deletes cached modloader installers, managed Java, and downloaded metadata "
                 + "(never touches mods/config/world saves/settings)."));
-        JButton purgeButton = new JButton("Purge");
+        StellarButton purgeButton = new StellarButton("Purge", StellarButton.Variant.DANGER);
         panel.add(purgeButton);
 
         purgeButton.addActionListener(e -> {
