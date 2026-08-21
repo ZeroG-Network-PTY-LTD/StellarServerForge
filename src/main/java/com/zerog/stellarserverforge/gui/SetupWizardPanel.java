@@ -119,6 +119,18 @@ public class SetupWizardPanel extends JPanel {
         return radio;
     }
 
+    private static void themeSpinner(JSpinner spinner) {
+        spinner.setFont(StellarTheme.FONT_BODY);
+        spinner.setBorder(BorderFactory.createLineBorder(StellarTheme.PANEL_BORDER));
+        JComponent editor = spinner.getEditor();
+        if (editor instanceof JSpinner.DefaultEditor defaultEditor) {
+            defaultEditor.getTextField().setBackground(StellarTheme.VOID_BLACK);
+            defaultEditor.getTextField().setForeground(StellarTheme.STAR_CYAN);
+            defaultEditor.getTextField().setCaretColor(StellarTheme.STAR_CYAN);
+            defaultEditor.getTextField().setBorder(BorderFactory.createEmptyBorder(2, 6, 2, 6));
+        }
+    }
+
     private JPanel buildMcVersionStep() {
         JPanel panel = themedPanel(null);
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
@@ -406,6 +418,7 @@ public class SetupWizardPanel extends JPanel {
         wrapper.setLayout(new BoxLayout(wrapper, BoxLayout.Y_AXIS));
         wrapper.add(StellarLabels.heading("Maximum RAM to allocate"));
         wrapper.add(Box.createVerticalStrut(8));
+        themeSpinner(ramSpinner);
         JPanel row = themedPanel(new FlowLayout(FlowLayout.LEFT));
         row.add(ramSpinner);
         row.add(StellarLabels.muted("GB"));
