@@ -197,8 +197,21 @@ public class DashboardPanel extends JPanel {
         }).setVisible(true);
     }
 
+    private static void themeSpinner(JSpinner spinner) {
+        spinner.setFont(StellarTheme.FONT_BODY);
+        spinner.setBorder(BorderFactory.createLineBorder(StellarTheme.PANEL_BORDER));
+        JComponent editor = spinner.getEditor();
+        if (editor instanceof JSpinner.DefaultEditor defaultEditor) {
+            defaultEditor.getTextField().setBackground(StellarTheme.VOID_BLACK);
+            defaultEditor.getTextField().setForeground(StellarTheme.STAR_CYAN);
+            defaultEditor.getTextField().setCaretColor(StellarTheme.STAR_CYAN);
+            defaultEditor.getTextField().setBorder(BorderFactory.createEmptyBorder(2, 6, 2, 6));
+        }
+    }
+
     private void onChangePort() {
         JSpinner spinner = new JSpinner(new SpinnerNumberModel(Math.max(settings.getPort(), 10000), 10000, 65535, 1));
+        themeSpinner(spinner);
         int result = JOptionPane.showConfirmDialog(this, spinner, "Server Port (>= 10000)",
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
         if (result != JOptionPane.OK_OPTION) {
@@ -250,6 +263,7 @@ public class DashboardPanel extends JPanel {
 
     private void onChangeRam() {
         JSpinner spinner = new JSpinner(new SpinnerNumberModel(settings.getMaxRamGigs(), 1, 128, 1));
+        themeSpinner(spinner);
         int result = JOptionPane.showConfirmDialog(this, spinner, "Maximum RAM (GB)",
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
         if (result == JOptionPane.OK_OPTION) {

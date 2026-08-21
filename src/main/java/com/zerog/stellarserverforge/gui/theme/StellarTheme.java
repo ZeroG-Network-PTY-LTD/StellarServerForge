@@ -96,5 +96,41 @@ public final class StellarTheme {
         UIManager.put("TabbedPane.foreground", TEXT_PRIMARY);
         UIManager.put("CheckBox.font", FONT_BODY);
         UIManager.put("Button.font", FONT_LABEL);
+
+        UIManager.put("Spinner.background", VOID_BLACK);
+        UIManager.put("Spinner.foreground", TEXT_PRIMARY);
+        UIManager.put("Spinner.font", FONT_BODY);
+        UIManager.put("FormattedTextField.background", VOID_BLACK);
+        UIManager.put("FormattedTextField.foreground", STAR_CYAN);
+        UIManager.put("FormattedTextField.caretForeground", STAR_CYAN);
+
+        UIManager.put("ComboBox.background", VOID_BLACK);
+        UIManager.put("ComboBox.foreground", TEXT_PRIMARY);
+        UIManager.put("ComboBox.selectionBackground", new Color(0x33, 0x3E, 0x8A));
+        UIManager.put("ComboBox.selectionForeground", TEXT_PRIMARY);
+        UIManager.put("ComboBox.font", FONT_BODY);
+
+        UIManager.put("ToolTip.background", PANEL_BG_SOLID);
+        UIManager.put("ToolTip.foreground", TEXT_PRIMARY);
+        UIManager.put("ToolTip.font", FONT_BODY);
+
+        UIManager.put("PopupMenu.background", PANEL_BG_SOLID);
+        UIManager.put("MenuItem.background", PANEL_BG_SOLID);
+        UIManager.put("MenuItem.foreground", TEXT_PRIMARY);
+        UIManager.put("MenuItem.selectionBackground", new Color(0x33, 0x3E, 0x8A));
+
+        UIManager.put("ScrollBar.thumb", new Color(0x3A, 0x3F, 0x7A));
+        UIManager.put("ScrollBar.thumbDarkShadow", NEBULA_BLUE);
+        UIManager.put("ScrollBar.thumbHighlight", STAR_CYAN_DIM);
+        UIManager.put("ScrollBar.track", DEEP_SPACE);
+        UIManager.put("ScrollBar.width", 14);
+
+        UIManager.put("ProgressBar.foreground", STAR_CYAN);
+        UIManager.put("ProgressBar.background", VOID_BLACK);
+        UIManager.put("ProgressBar.selectionForeground", TEXT_PRIMARY);
+        UIManager.put("ProgressBar.selectionBackground", TEXT_PRIMARY);
+
+        UIManager.put("Separator.foreground", PANEL_BORDER);
+        UIManager.put("Separator.background", DEEP_SPACE);
     }
 }
