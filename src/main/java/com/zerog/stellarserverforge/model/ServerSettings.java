@@ -1,5 +1,10 @@
 package com.zerog.stellarserverforge.model;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.zerog.stellarserverforge.settings.EncryptedStringDeserializer;
+import com.zerog.stellarserverforge.settings.EncryptedStringSerializer;
+
 /**
  * Persisted per-server settings, equivalent to the original {@code settings-universalator.txt}
  * but stored as plain JSON key/value data rather than an executable batch fragment.
@@ -25,6 +30,13 @@ public class ServerSettings {
     private String protocol = "TCP";
     private boolean usePortForwarded = false;
     private JavaOverrideMode javaOverrideMode = JavaOverrideMode.AUTOMATIC;
+    private String zeroGCatalogUrl = "";
+
+    /** Stored encrypted (AES-256-GCM, key held outside the repo/server dir — see SecretStore); the
+     * in-memory value here is always plaintext, only the on-disk settings.json copy is ciphertext. */
+    @JsonSerialize(using = EncryptedStringSerializer.class)
+    @JsonDeserialize(using = EncryptedStringDeserializer.class)
+    private String curseForgeApiKey = "";
 
     public String getMinecraftVersion() {
         return minecraftVersion;
@@ -125,5 +137,23 @@ public class ServerSettings {
     /** Whether {@link #args} is still exactly the unmodified default string. */
     public boolean hasDefaultArgs() {
         return DEFAULT_ARGS.equals(args);
+    }
+
+    /** Raw GitHub URL to the JSON list of mods the ZeroG Network org has made (spec: user-supplied). */
+    public String getZeroGCatalogUrl() {
+        return zeroGCatalogUrl;
+    }
+
+    public void setZeroGCatalogUrl(String zeroGCatalogUrl) {
+        this.zeroGCatalogUrl = zeroGCatalogUrl;
+    }
+
+    /** Personal API key from console.curseforge.com, needed to auto-download CurseForge-sourced mods. */
+    public String getCurseForgeApiKey() {
+        return curseForgeApiKey;
+    }
+
+    public void setCurseForgeApiKey(String curseForgeApiKey) {
+        this.curseForgeApiKey = curseForgeApiKey;
     }
 }

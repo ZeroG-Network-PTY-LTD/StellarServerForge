@@ -7,6 +7,8 @@ import com.zerog.stellarserverforge.model.ServerSettings;
 import javax.swing.*;
 import java.awt.*;
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 public class MainFrame extends JFrame {
@@ -23,7 +25,7 @@ public class MainFrame extends JFrame {
 
     public MainFrame() {
         super("StellarServerForge");
-        this.ctx = new AppContext(Path.of(System.getProperty("user.dir")));
+        this.ctx = new AppContext(resolveServerDir());
 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1000, 700);
@@ -50,6 +52,22 @@ public class MainFrame extends JFrame {
         } else {
             cardLayout.show(cards, CARD_WIZARD);
         }
+    }
+
+    /** The server directory tracks the running jar's own folder, not the process's working
+     * directory — so settings.json/mods/etc. land next to the built jar regardless of how it was
+     * launched (double-click, a shortcut with a different "Start in" folder, a script elsewhere). */
+    private static Path resolveServerDir() {
+        try {
+            Path location = Path.of(MainFrame.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+            Path dir = Files.isRegularFile(location) ? location.getParent() : location;
+            if (dir != null) {
+                return dir;
+            }
+        } catch (URISyntaxException | RuntimeException ignored) {
+            // Fall through to the working-directory fallback below (e.g. running from an IDE/gradlew run).
+        }
+        return Path.of(System.getProperty("user.dir"));
     }
 
     private void onSetupComplete(ServerSettings settings) {

@@ -12,3 +12,6 @@ server.properties
 eula.txt
 logs/
 world/
+
+# CurseForge proxy secrets — never commit real API keys
+proxy-php/config.php

@@ -7,6 +7,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Map;
 
 /** Thin wrapper over {@link HttpClient} used by every service that fetches remote metadata/files. */
 public class HttpFetcher {
@@ -17,11 +18,15 @@ public class HttpFetcher {
             .build();
 
     public String getString(String url) throws IOException, InterruptedException {
-        HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+        return getString(url, Map.of());
+    }
+
+    public String getString(String url, Map<String, String> headers) throws IOException, InterruptedException {
+        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofSeconds(30))
-                .GET()
-                .build();
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                .GET();
+        headers.forEach(builder::header);
+        HttpResponse<String> response = client.send(builder.build(), HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() / 100 != 2) {
             throw new IOException("HTTP " + response.statusCode() + " fetching " + url);
         }
@@ -29,11 +34,15 @@ public class HttpFetcher {
     }
 
     public void downloadToFile(String url, Path destination) throws IOException, InterruptedException {
-        HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+        downloadToFile(url, destination, Map.of());
+    }
+
+    public void downloadToFile(String url, Path destination, Map<String, String> headers) throws IOException, InterruptedException {
+        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofMinutes(5))
-                .GET()
-                .build();
-        HttpResponse<Path> response = client.send(request, HttpResponse.BodyHandlers.ofFile(destination));
+                .GET();
+        headers.forEach(builder::header);
+        HttpResponse<Path> response = client.send(builder.build(), HttpResponse.BodyHandlers.ofFile(destination));
         if (response.statusCode() / 100 != 2) {
             throw new IOException("HTTP " + response.statusCode() + " downloading " + url);
         }

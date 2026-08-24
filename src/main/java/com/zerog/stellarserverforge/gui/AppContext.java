@@ -20,6 +20,9 @@ import com.zerog.stellarserverforge.utility.IconGeneratorService;
 import com.zerog.stellarserverforge.utility.PurgeService;
 import com.zerog.stellarserverforge.utility.RunScriptGeneratorService;
 import com.zerog.stellarserverforge.utility.ServerPackZipService;
+import com.zerog.stellarserverforge.zerogmods.CurseForgeInstallService;
+import com.zerog.stellarserverforge.zerogmods.ModrinthInstallService;
+import com.zerog.stellarserverforge.zerogmods.ZeroGModCatalogService;
 
 import java.nio.file.Path;
 
@@ -49,6 +52,9 @@ public class AppContext {
     public final ServerPackZipService serverPackZipService;
     public final RunScriptGeneratorService runScriptGeneratorService;
     public final PurgeService purgeService;
+    public final ZeroGModCatalogService zeroGModCatalogService;
+    public final ModrinthInstallService modrinthInstallService;
+    public final CurseForgeInstallService curseForgeInstallService;
 
     public AppContext(Path serverDir) {
         this.serverDir = serverDir;
@@ -74,5 +80,8 @@ public class AppContext {
         this.serverPackZipService = new ServerPackZipService();
         this.runScriptGeneratorService = new RunScriptGeneratorService();
         this.purgeService = new PurgeService();
+        this.zeroGModCatalogService = new ZeroGModCatalogService(cacheDir);
+        this.modrinthInstallService = new ModrinthInstallService();
+        this.curseForgeInstallService = new CurseForgeInstallService(cacheDir);
     }
 }

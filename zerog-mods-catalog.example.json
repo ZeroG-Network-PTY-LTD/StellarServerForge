@@ -1,0 +1,16 @@
+[
+  {
+    "name": "Example Mod (Modrinth)",
+    "description": "One-line description shown in the ZeroG Network mods list.",
+    "source": "MODRINTH",
+    "projectId": "example-mod-slug",
+    "pageUrl": "https://modrinth.com/mod/example-mod-slug"
+  },
+  {
+    "name": "Example Mod (CurseForge)",
+    "description": "projectId here is the numeric CurseForge mod ID, not the slug.",
+    "source": "CURSEFORGE",
+    "projectId": "123456",
+    "pageUrl": "https://www.curseforge.com/minecraft/mc-mods/example-mod-slug"
+  }
+]
