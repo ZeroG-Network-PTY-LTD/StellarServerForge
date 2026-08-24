@@ -23,25 +23,25 @@ public class UpnpDialog extends JDialog {
 
     private final JLabel statusLabel = StellarLabels.body("Checking your connection...");
     private final JLabel protocolLabel = StellarLabels.muted("");
-    private final StellarButton toggleProtocolButton = new StellarButton("Cycle Protocol (TCP/BOTH/UDP)");
+    private final StellarButton toggleProtocolButton = new StellarButton("Cycle protocol", StellarButton.Variant.SECONDARY);
     private final StellarButton activateButton = new StellarButton("Activate UPnP", StellarButton.Variant.PRIMARY);
     private final StellarButton deactivateButton = new StellarButton("Deactivate UPnP", StellarButton.Variant.DANGER);
-    private final StellarButton closeButton = new StellarButton("Close");
+    private final StellarButton closeButton = new StellarButton("Close", StellarButton.Variant.GHOST);
 
     public UpnpDialog(Frame owner, AppContext ctx, ServerSettings settings, Runnable onSettingsChanged) {
-        super(owner, "UPnP Port Forwarding", true);
+        super(owner, "UPnP port forwarding", true);
         this.ctx = ctx;
         this.settings = settings;
         this.onSettingsChanged = onSettingsChanged;
 
-        getContentPane().setBackground(StellarTheme.DEEP_SPACE);
+        getContentPane().setBackground(StellarTheme.BG);
         setLayout(new BorderLayout(10, 10));
         ((JComponent) getContentPane()).setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
 
         JPanel center = new JPanel();
         center.setOpaque(false);
         center.setLayout(new BoxLayout(center, BoxLayout.Y_AXIS));
-        center.add(StellarLabels.heading("Router Uplink"));
+        center.add(StellarLabels.heading("UPnP port forwarding"));
         center.add(Box.createVerticalStrut(8));
         center.add(statusLabel);
         center.add(protocolLabel);

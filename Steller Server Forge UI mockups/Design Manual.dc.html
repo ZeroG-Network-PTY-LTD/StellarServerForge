@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="./doc-page.js"></script>
+  <style>
+    doc-page:not(:defined){visibility:hidden}
+    body{margin:0}
+  </style>
+</helmet>
+<doc-page margin="0.7in">
+
+<div style="font-family:'Inter',system-ui,sans-serif;color:#292b31;font-size:10.5pt;line-height:1.55">
+
+<div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid #cfd3e5;padding-bottom:10px">
+  <div style="font-size:8pt;letter-spacing:.14em;text-transform:uppercase;color:#75798c;font-weight:600">StellarServerForge · UI overhaul</div>
+  <div style="font-size:8pt;color:#75798c">Design manual v1 · for the implementing agent</div>
+</div>
+
+<h1 style="font-family:'Inter',sans-serif;font-weight:500;font-size:27pt;line-height:1.1;margin:26px 0 8px;letter-spacing:-.02em;text-wrap:balance">Design manual: Nocturne for StellarServerForge</h1>
+<p style="font-size:12pt;line-height:1.5;color:#595d6c;margin:0 0 8px;max-width:34em">The single source of truth for the visual overhaul of the Swing desktop app. Every value here is normative. Where this document and existing code disagree, this document wins.</p>
+
+<h2 style="font-family:'Inter',sans-serif;font-weight:500;font-size:15pt;margin:34px 0 10px;padding-bottom:6px;border-bottom:1px solid #e4e7f5">0. Scope and ground rules</h2>
+<ul style="margin:0;padding-left:20px">
+  <li style="margin-bottom:6px">This is a <strong>visual and interaction overhaul only</strong>. Do not change server logic, Java resolution, modloader installation, UPnP, or process management behaviour.</li>
+  <li style="margin-bottom:6px">The previously discussed “galaxy / starfield / nebula” direction is <strong>cancelled</strong>. Remove starfield backgrounds, nebula glows, gradient floods, cyan/gold accents, drop-shadow text and any decorative animation.</li>
+  <li style="margin-bottom:6px">The system is <strong>Nocturne</strong>: a near-neutral blue-grey dark ground, Inter at weight 400/500, 8px radii, and a single blurple accent used as a <em>line, mark or glow</em> — never as a large fill.</li>
+  <li style="margin-bottom:6px">No hard-coded colors, fonts, sizes or paddings anywhere in UI code. All of them come from one theme class (§2).</li>
+  <li>No emoji in the UI. Icons are Phosphor SVGs (§8).</li>
+</ul>
+
+<h2 style="font-family:'Inter',sans-serif;font-weight:500;font-size:15pt;margin:32px 0 10px;padding-bottom:6px;border-bottom:1px solid #e4e7f5">1. Technical approach</h2>
+<p style="margin:0 0 10px">Swing's default look-and-feel cannot express this system. Adopt <strong>FlatLaf</strong> (<span style="font-family:'JetBrains Mono',monospace;font-size:9pt">com.formdev:flatlaf</span>, plus <span style="font-family:'JetBrains Mono',monospace;font-size:9pt">flatlaf-extras</span> for SVG icon support) and drive it from a properties file rather than per-component styling.</p>
+<ol style="margin:0;padding-left:20px">
+  <li style="margin-bottom:6px">Add <span style="font-family:'JetBrains Mono',monospace;font-size:9pt">flatlaf</span> + <span style="font-family:'JetBrains Mono',monospace;font-size:9pt">flatlaf-extras</span> to the build; keep them inside the shaded JAR and the jpackage image.</li>
+  <li style="margin-bottom:6px">Create <span style="font-family:'JetBrains Mono',monospace;font-size:9pt">NocturneTheme extends FlatDarkLaf</span> backed by <span style="font-family:'JetBrains Mono',monospace;font-size:9pt">resources/themes/Nocturne.properties</span> (§2). Install it once, before any window is constructed, on the EDT.</li>
+  <li style="margin-bottom:6px">Bundle Inter (Regular, Medium, SemiBold) and JetBrains Mono (Regular) as TTFs in resources; register them with <span style="font-family:'JetBrains Mono',monospace;font-size:9pt">GraphicsEnvironment.registerFont</span> at startup and set <span style="font-family:'JetBrains Mono',monospace;font-size:9pt">defaultFont</span> in the properties. Do not rely on the system having Inter.</li>
+  <li style="margin-bottom:6px">Introduce a single <span style="font-family:'JetBrains Mono',monospace;font-size:9pt">Tokens</span> class exposing the values in §3–§5 as static finals (<span style="font-family:'JetBrains Mono',monospace;font-size:9pt">Tokens.BG</span>, <span style="font-family:'JetBrains Mono',monospace;font-size:9pt">Tokens.SPACE_6</span>, …). Every layout reads from it.</li>
+  <li>Layout with <strong>MigLayout</strong> or <span style="font-family:'JetBrains Mono',monospace;font-size:9pt">GridBagLayout</span>. Remove all <span style="font-family:'JetBrains Mono',monospace;font-size:9pt">setBounds</span>/null-layout code and all absolute pixel positioning.</li>
+</ol>
+
+<h2 style="font-family:'Inter',sans-serif;font-weight:500;font-size:15pt;margin:32px 0 10px;padding-bottom:6px;border-bottom:1px solid #e4e7f5">2. Theme properties (authoritative starting point)</h2>
+<pre style="font-family:'JetBrains Mono',monospace;font-size:8.2pt;line-height:1.5;background:#f3f5fe;border:1px solid #e4e7f5;border-radius:8px;padding:14px;overflow:auto;break-inside:avoid;margin:0 0 10px">@base = #161826
+@accent = #9184d9
+@surface = #232532
+@text = #e9e9ed
+
+# global
+default<span>F</span>ont = Inter 13
+@background = @base
+@foreground = @text
+Component.arc = 8
+Component.focusWidth = 2
+Component.focusColor = @accent
+Component.borderColor = #3f424d
+Component.innerFocusWidth = 0
+Panel.background = @base
+TextComponent.arc = 8
+Button.arc = 8
+ScrollBar.thumb = #3f424d
+ScrollBar.track = @base
+ScrollBar.width = 10
+
+# buttons — outlined, never filled
+Button.background = @base
+Button.foreground = @text
+Button.borderColor = #595d6c
+Button.hoverBorderColor = @accent
+Button.default.background = @base
+Button.default.foreground = #d2cefd
+Button.default.borderColor = @accent
+Button.default.focusedBorderColor = #b5abfc
+Button.default.boldText = false
+Button.disabledText = #75798c
+
+# fields
+TextField.background = #1c1e2c
+TextField.borderColor = #3f424d
+TextField.focusedBorderColor = @accent
+TextField.placeholderForeground = #75798c
+ComboBox.background = #1c1e2c
+ComboBox.buttonArrowColor = #9397ab</pre>
+<pre style="font-family:'JetBrains Mono',monospace;font-size:8.2pt;line-height:1.5;background:#f3f5fe;border:1px solid #e4e7f5;border-radius:8px;padding:14px;overflow:auto;break-inside:avoid;margin:0 0 10px"># tables & lists
+Table.background = @surface
+Table.gridColor = #3f424d
+Table.selectionBackground = #2b2741
+Table.selectionForeground = #d2cefd
+TableHeader.background = #292b31
+TableHeader.foreground = #b2b6ca
+
+# menus / tabs
+TabbedPane.underlineColor = @accent
+TabbedPane.selectedForeground = @text
+TabbedPane.background = @base</pre>
+<p style="margin:0;color:#595d6c;font-size:9.5pt">Extend this file rather than adding <span style="font-family:'JetBrains Mono',monospace;font-size:9pt">UIManager.put</span> calls scattered through the code. One-off component styling goes through <span style="font-family:'JetBrains Mono',monospace;font-size:9pt">FlatClientProperties.STYLE</span> on that component, not through a new LaF key.</p>
+
+<h2 style="font-family:'Inter',sans-serif;font-weight:500;font-size:15pt;margin:32px 0 10px;padding-bottom:6px;border-bottom:1px solid #e4e7f5">3. Color</h2>
+<p style="margin:0 0 12px">Four roles plus two nine-step tonal ramps. On this dark ground: steps 700–900 are tinted fills, hovers and subtle borders; 500 is the role's base; 100–300 are text on tints and pressed states. Never use pure black or pure white.</p>
+
+<table style="width:100%;border-collapse:collapse;font-size:9.5pt;margin-bottom:16px;break-inside:avoid">
+  <thead><tr style="text-align:left;border-bottom:1.5px solid #cfd3e5">
+    <th style="padding:6px 8px 6px 0;font-weight:600">Role</th><th style="padding:6px 8px;font-weight:600">Hex</th><th style="padding:6px 8px;font-weight:600">Use</th>
+  </tr></thead>
+  <tbody>
+    <tr style="border-bottom:1px solid #e4e7f5"><td style="padding:6px 8px 6px 0"><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#161826;border:1px solid #cfd3e5;vertical-align:-1px;margin-right:7px"></span>bg</td><td style="padding:6px 8px;font-family:'JetBrains Mono',monospace">#161826</td><td style="padding:6px 8px">Window ground, panel default</td></tr>
+    <tr style="border-bottom:1px solid #e4e7f5"><td style="padding:6px 8px 6px 0"><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#232532;border:1px solid #cfd3e5;vertical-align:-1px;margin-right:7px"></span>surface</td><td style="padding:6px 8px;font-family:'JetBrains Mono',monospace">#232532</td><td style="padding:6px 8px">Cards, table body, popovers</td></tr>
+    <tr style="border-bottom:1px solid #e4e7f5"><td style="padding:6px 8px 6px 0"><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#e9e9ed;border:1px solid #cfd3e5;vertical-align:-1px;margin-right:7px"></span>text</td><td style="padding:6px 8px;font-family:'JetBrains Mono',monospace">#e9e9ed</td><td style="padding:6px 8px">Primary text</td></tr>
+    <tr style="border-bottom:1px solid #e4e7f5"><td style="padding:6px 8px 6px 0"><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#9184d9;border:1px solid #cfd3e5;vertical-align:-1px;margin-right:7px"></span>accent</td><td style="padding:6px 8px;font-family:'JetBrains Mono',monospace">#9184d9</td><td style="padding:6px 8px">Borders, focus, icons, marks</td></tr>
+    <tr><td style="padding:6px 8px 6px 0">divider</td><td style="padding:6px 8px;font-family:'JetBrains Mono',monospace">#e9e9ed @ 16%</td><td style="padding:6px 8px">Hairline rules</td></tr>
+  </tbody>
+</table>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;break-inside:avoid;margin-bottom:14px">
+  <div>
+    <div style="font-size:8pt;letter-spacing:.12em;text-transform:uppercase;color:#75798c;font-weight:600;margin-bottom:6px">Neutral ramp</div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:8.4pt;line-height:1.75">
+      <div>100 #f3f5fe &nbsp; 200 #e4e7f5 &nbsp; 300 #cfd3e5</div>
+      <div>400 #b2b6ca &nbsp; 500 #9397ab &nbsp; 600 #75798c</div>
+      <div>700 #595d6c &nbsp; 800 #3f424d &nbsp; 900 #292b31</div>
+    </div>
+  </div>
+  <div>
+    <div style="font-size:8pt;letter-spacing:.12em;text-transform:uppercase;color:#75798c;font-weight:600;margin-bottom:6px">Accent ramp</div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:8.4pt;line-height:1.75">
+      <div>100 #f5f4ff &nbsp; 200 #e7e5fe &nbsp; 300 #d2cefd</div>
+      <div>400 #b5abfc &nbsp; 500 #968ae0 &nbsp; 600 #796cbf</div>
+      <div>700 #5d5294 &nbsp; 800 #423a6a &nbsp; 900 #2b2741</div>
+    </div>
+  </div>
+</div>
+
+<div style="border-left:2px solid #9184d9;padding:2px 0 2px 12px;margin-bottom:6px;break-inside:avoid">
+  <div style="font-weight:600;margin-bottom:3px">Status colors — a deliberate extension</div>
+  <p style="margin:0;font-size:9.5pt;color:#595d6c">Nocturne is mono and carries no semantic error/warning role, but server lifecycle states need one. Add exactly these three, derived at the accent's own lightness and chroma so they carry equal visual weight: <strong style="font-family:'JetBrains Mono',monospace;font-weight:500">running #84d9a0</strong>, <strong style="font-family:'JetBrains Mono',monospace;font-weight:500">warning #d9c184</strong>, <strong style="font-family:'JetBrains Mono',monospace;font-weight:500">failed #d98a84</strong>. Idle uses neutral-500 <span style="font-family:'JetBrains Mono',monospace">#9397ab</span>. Use them only as an 8px dot, a 1px border, or small-caps label text — never as a panel fill. Add no further colors.</p>
+</div>
+
+<h2 style="font-family:'Inter',sans-serif;font-weight:500;font-size:15pt;margin:32px 0 10px;padding-bottom:6px;border-bottom:1px solid #e4e7f5">4. Type</h2>
+<p style="margin:0 0 10px">Inter throughout, with JetBrains Mono reserved for the console, log output, paths, versions and port numbers. Hierarchy is size and space; never bolden a heading past 500.</p>
+<table style="width:100%;border-collapse:collapse;font-size:9.5pt;break-inside:avoid">
+  <thead><tr style="text-align:left;border-bottom:1.5px solid #cfd3e5">
+    <th style="padding:6px 8px 6px 0;font-weight:600">Token</th><th style="padding:6px 8px;font-weight:600">Size / weight</th><th style="padding:6px 8px;font-weight:600">Applied to</th>
+  </tr></thead>
+  <tbody>
+    <tr style="border-bottom:1px solid #e4e7f5"><td style="padding:6px 8px 6px 0">Screen title</td><td style="padding:6px 8px">20px / 500</td><td style="padding:6px 8px">One per screen, flush left</td></tr>
+    <tr style="border-bottom:1px solid #e4e7f5"><td style="padding:6px 8px 6px 0">Card title</td><td style="padding:6px 8px">15px / 500</td><td style="padding:6px 8px">Card headings, dialog titles</td></tr>
+    <tr style="border-bottom:1px solid #e4e7f5"><td style="padding:6px 8px 6px 0">Body</td><td style="padding:6px 8px">13px / 400</td><td style="padding:6px 8px">Default UI font, labels, buttons</td></tr>
+    <tr style="border-bottom:1px solid #e4e7f5"><td style="padding:6px 8px 6px 0">Kicker</td><td style="padding:6px 8px">10px / 600, +0.10em tracking, uppercase, neutral-500</td><td style="padding:6px 8px">Field group labels, card eyebrows</td></tr>
+    <tr style="border-bottom:1px solid #e4e7f5"><td style="padding:6px 8px 6px 0">Caption</td><td style="padding:6px 8px">11px / 400, neutral-500</td><td style="padding:6px 8px">Helper text under fields</td></tr>
+    <tr><td style="padding:6px 8px 6px 0">Mono</td><td style="padding:6px 8px">12px / 400 JetBrains Mono</td><td style="padding:6px 8px">Console, versions, paths, ports</td></tr>
+  </tbody>
+</table>
+<p style="margin:10px 0 0;color:#595d6c;font-size:9.5pt">Body copy in the accent color must use accent-300 <span style="font-family:'JetBrains Mono',monospace">#d2cefd</span>, not the accent itself — the accent only clears 3:1 against the ground, which covers chrome and large text but not paragraphs.</p>
+
+<h2 style="font-family:'Inter',sans-serif;font-weight:500;font-size:15pt;margin:32px 0 10px;padding-bottom:6px;border-bottom:1px solid #e4e7f5">5. Spacing, radius, elevation</h2>
+<p style="margin:0 0 10px">The scale is intentionally dense (0.7× density). Round the tokens to whole pixels in Java: <span style="font-family:'JetBrains Mono',monospace;font-size:9pt">3, 6, 8, 11, 17, 22</span>. Use nothing between them.</p>
+<ul style="margin:0 0 10px;padding-left:20px">
+  <li style="margin-bottom:5px">Window edge padding: <strong>22px</strong>. Card interior padding: <strong>17px</strong>. Gap between cards: <strong>17px</strong>. Gap between a label and its field: <strong>6px</strong>. Gap between stacked fields: <strong>11px</strong>. Gap between sibling buttons: <strong>8px</strong>.</li>
+  <li style="margin-bottom:5px">Radius: <strong>4px</strong> for tags and dots, <strong>8px</strong> for buttons, fields and small cards, <strong>14px</strong> for the large panel containers and dialogs.</li>
+  <li>Elevation on a dark ground is <em>an edge plus ambient darkness</em>, not a stacked shadow. Level 1: 1px <span style="font-family:'JetBrains Mono',monospace">#3f424d</span> border, no shadow. Level 2: 1px <span style="font-family:'JetBrains Mono',monospace">#595d6c</span> border + a soft 18px black-55% drop. Level 3 (dialogs only): 1px <span style="font-family:'JetBrains Mono',monospace">#9397ab</span> border + 40px black-65% drop. Never stack more.</li>
+</ul>
+
+<h2 style="font-family:'Inter',sans-serif;font-weight:500;font-size:15pt;margin:32px 0 10px;padding-bottom:6px;border-bottom:1px solid #e4e7f5">6. Component specifications</h2>
+
+<div style="break-inside:avoid;margin-bottom:14px">
+  <div style="font-weight:600;margin-bottom:4px">Buttons</div>
+  <p style="margin:0 0 6px">All buttons are <strong>outlined on a transparent ground</strong>. There is no solid-filled button in this system.</p>
+  <ul style="margin:0;padding-left:20px">
+    <li style="margin-bottom:4px"><strong>Primary</strong> (Launch, Continue, Save): 1px accent <span style="font-family:'JetBrains Mono',monospace">#9184d9</span> border, accent-300 text, transparent fill. One per screen region.</li>
+    <li style="margin-bottom:4px"><strong>Secondary</strong>: 1px neutral-700 <span style="font-family:'JetBrains Mono',monospace">#595d6c</span> border, primary text.</li>
+    <li style="margin-bottom:4px"><strong>Ghost</strong> (Back, Cancel): no border, neutral-400 text, hover tints the background to accent-900.</li>
+    <li style="margin-bottom:4px"><strong>Destructive</strong> (Stop server, Purge cache): 1px <span style="font-family:'JetBrains Mono',monospace">#d98a84</span> border, same text color. Not filled.</li>
+    <li>Height 34px, horizontal padding 14px, 8px radius, label at body size weight 400. Icon-plus-label buttons put a 14px icon after the label with a 6px gap.</li>
+  </ul>
+</div>
+
+<div style="break-inside:avoid;margin-bottom:14px">
+  <div style="font-weight:600;margin-bottom:4px">Cards</div>
+  <p style="margin:0">Surface-filled rounded containers: <span style="font-family:'JetBrains Mono',monospace">#232532</span> fill, 14px radius, level-1 or level-2 edge, 17px interior padding. Internal order is always kicker → title → body → meta row of tags. Every content region on every screen sits in a card; nothing floats on the raw window ground except the header bar and the screen title.</p>
+</div>
+
+<div style="break-inside:avoid;margin-bottom:14px">
+  <div style="font-weight:600;margin-bottom:4px">Fields and choices</div>
+  <ul style="margin:0;padding-left:20px">
+    <li style="margin-bottom:4px">Text field / combo: fill <span style="font-family:'JetBrains Mono',monospace">#1c1e2c</span>, 1px neutral-800 border, 8px radius, 32px height, 10px horizontal padding. Focus swaps the border to accent and draws the 2px focus ring.</li>
+    <li style="margin-bottom:4px">Label above the field in Kicker style; optional helper Caption below.</li>
+    <li style="margin-bottom:4px">Mutually exclusive short choices (Java mode, modloader type) use a <strong>segmented control</strong>: a single 8px-radius neutral-800-bordered strip of equal-width options; the selected option gets an accent-900 fill and accent-300 text. Not radio buttons, not a dropdown.</li>
+    <li>RAM allocation is a slider with a mono numeric readout to its right, snapping to 1 GB steps, plus a caption naming the machine's detected total RAM.</li>
+  </ul>
+</div>
+
+<div style="break-inside:avoid;margin-bottom:14px">
+  <div style="font-weight:600;margin-bottom:4px">Tags</div>
+  <p style="margin:0">Small 4px-radius labels, 10px/600 uppercase text, 3px/8px padding. Accent variant: accent-900 fill, accent-300 text. Neutral variant: neutral-900 fill, neutral-300 text. Outline variant: 1px neutral-700 border, no fill. Status tags prefix an 8px status dot.</p>
+</div>
+
+<div style="break-inside:avoid;margin-bottom:14px">
+  <div style="font-weight:600;margin-bottom:4px">Header bar</div>
+  <p style="margin:0">A single 52px row across the top: wordmark “StellarServerForge” at 15px/500 on the far left, then the section links (Mission Control, Mods, Utilities, Settings) as ghost-styled text at body size, then the live status tag pushed to the far right. The active section is marked by a 2px accent underline, not a fill. This bar replaces any existing tab strip or menu-driven navigation.</p>
+</div>
+
+<div style="break-inside:avoid">
+  <div style="font-weight:600;margin-bottom:4px">Console</div>
+  <p style="margin:0">A level-1 card with <strong>no interior padding on the text area itself</strong> — the scroll pane fills the card and carries 17px inset padding. Ground <span style="font-family:'JetBrains Mono',monospace">#292b31</span>, mono 12px, line-height 1.6, neutral-100 text. Color only three things: server-lifecycle lines (Starting/Done/Stopping) in accent-300, warnings in <span style="font-family:'JetBrains Mono',monospace">#d9c184</span>, errors and stack traces in <span style="font-family:'JetBrains Mono',monospace">#d98a84</span>. Everything else stays neutral-100 — do not colorize timestamps or thread names. Auto-scroll to tail with a pause-on-manual-scroll behaviour, and a command input row pinned below the pane with an accent-300 <span style="font-family:'JetBrains Mono',monospace">&gt;</span> prefix.</p>
+</div>
+
+<h2 style="font-family:'Inter',sans-serif;font-weight:500;font-size:15pt;margin:32px 0 10px;padding-bottom:6px;border-bottom:1px solid #e4e7f5">7. Interaction states</h2>
+<p style="margin:0 0 8px">Every interactive element must implement all five. No browser or Swing defaults survive.</p>
+<table style="width:100%;border-collapse:collapse;font-size:9.5pt;break-inside:avoid">
+  <thead><tr style="text-align:left;border-bottom:1.5px solid #cfd3e5">
+    <th style="padding:6px 8px 6px 0;font-weight:600">State</th><th style="padding:6px 8px;font-weight:600">Treatment</th>
+  </tr></thead>
+  <tbody>
+    <tr style="border-bottom:1px solid #e4e7f5"><td style="padding:6px 8px 6px 0">Hover</td><td style="padding:6px 8px">Background tints to accent-900 <span style="font-family:'JetBrains Mono',monospace">#2b2741</span>; an outlined element also lifts its border one step toward accent-400.</td></tr>
+    <tr style="border-bottom:1px solid #e4e7f5"><td style="padding:6px 8px 6px 0">Pressed</td><td style="padding:6px 8px">Accent-800 <span style="font-family:'JetBrains Mono',monospace">#423a6a</span> fill, text to accent-200. No motion, no scale.</td></tr>
+    <tr style="border-bottom:1px solid #e4e7f5"><td style="padding:6px 8px 6px 0">Keyboard focus</td><td style="padding:6px 8px">2px accent ring at 2px offset, on every focusable control including the console and the slider.</td></tr>
+    <tr style="border-bottom:1px solid #e4e7f5"><td style="padding:6px 8px 6px 0">Disabled</td><td style="padding:6px 8px">45% opacity, no hover, no pointer feedback. Launch is disabled while running; Stop is disabled while idle.</td></tr>
+    <tr><td style="padding:6px 8px 6px 0">Busy</td><td style="padding:6px 8px">An indeterminate 2px accent progress line pinned to the bottom edge of the card doing the work, plus the button's label swapping to a present participle (“Installing…”). No spinners, no modal blocking.</td></tr>
+  </tbody>
+</table>
+
+<h2 style="font-family:'Inter',sans-serif;font-weight:500;font-size:15pt;margin:32px 0 10px;padding-bottom:6px;border-bottom:1px solid #e4e7f5">8. Icons</h2>
+<p style="margin:0">Phosphor Icons (phosphoricons.com), <strong>Regular</strong> weight only, rendered as SVG through <span style="font-family:'JetBrains Mono',monospace;font-size:9pt">FlatSVGIcon</span> — not an icon font, not PNG. 16px in buttons and rows, 20px in headers, colored by <span style="font-family:'JetBrains Mono',monospace;font-size:9pt">currentColor</span> mapping so they inherit their container's text color. Suggested mapping: Launch → <em>play</em>, Stop → <em>stop</em>, Settings → <em>gear-six</em>, Mods → <em>puzzle-piece</em>, Utilities → <em>wrench</em>, Console → <em>terminal-window</em>, Import → <em>download-simple</em>, Folder → <em>folder-open</em>, Warning → <em>warning</em>, Network → <em>globe-simple</em>. No other icon sources.</p>
+
+<h2 style="font-family:'Inter',sans-serif;font-weight:500;font-size:15pt;margin:32px 0 10px;padding-bottom:6px;border-bottom:1px solid #e4e7f5">9. Screen-by-screen direction</h2>
+<p style="margin:0 0 12px">Layouts are left-aligned and asymmetric: content hugs the left edge and whitespace collects on the right. Minimum window 1100×740; everything must reflow, not clip, down to that.</p>
+
+<div style="break-inside:avoid;margin-bottom:14px">
+  <div style="font-weight:600;margin-bottom:4px">Mission Control</div>
+  <p style="margin:0">Header bar, then a two-column split (roughly 1.3 : 1). Left card: the working directory as a mono path in the title position, then a three-column grid of six labelled facts — Minecraft version, modloader + version, Java version + mode, RAM, port, Java mode — each a Kicker label over a mono value. Below the grid, the primary Launch button and a secondary “Re-run setup wizard”. Right card: the live status — status tag, one-line plain-language status sentence, one line of context (last exit, uptime, or crash count), and the auto-restart state as a tag. Nothing else on this screen; resist adding charts, activity feeds or player counts.</p>
+</div>
+
+<div style="break-inside:avoid;margin-bottom:14px">
+  <div style="font-weight:600;margin-bottom:4px">Setup wizard</div>
+  <p style="margin:0">Five steps: Minecraft version → modloader type → modloader version → Java version → RAM. A single row of five step tags at the top, the current one in the accent variant and the rest outlined; no progress bar. One card, max 640px wide, left-aligned on the window — do not center it. Each step shows exactly one decision, its input, and at most two supporting tags (detected latest release, auto-recommended Java version). Footer row: ghost Back on the left, primary Continue on the right, Back disabled on step 1 and Continue relabelled “Install” on step 5. Validation errors appear as a Caption in <span style="font-family:'JetBrains Mono',monospace">#d98a84</span> under the offending field, never as a modal dialog.</p>
+</div>
+
+<div style="break-inside:avoid;margin-bottom:14px">
+  <div style="font-weight:600;margin-bottom:4px">Server detail &amp; console</div>
+  <p style="margin:0">A control row (status tag + mono uptime on the left, Launch and Stop on the right), then the console card taking all remaining vertical space, then a two-column row of two short cards: the auto-restart toggle with its 5-attempt cap named in a Caption, and crash diagnostics. The diagnostics card is the only place crash guidance appears: on a non-graceful exit it names the detected cause (Java/modloader mismatch, port in use, client-only mod on a dedicated server) as its title and one concrete remedy as its body, with a secondary button that performs that remedy where one exists. When there is no crash it reads “No crash on record” and stays quiet — do not hide the card.</p>
+</div>
+
+<div style="break-inside:avoid;margin-bottom:14px">
+  <div style="font-weight:600;margin-bottom:4px">Settings</div>
+  <p style="margin:0">Two columns of cards. Left: server settings — RAM slider, port field, and “Re-enter setup wizard” as a full-width secondary button. Right: Java resolution mode as a three-option segmented control (Automatic / System PATH / Force-managed) with a Caption naming the currently resolved JDK path, then a Networking group with UPnP port forwarding and the Windows Firewall rule check as label-plus-status rows, each with its own action tag or button. Settings apply on change with an inline confirmation, not via a Save/Apply footer.</p>
+</div>
+
+<div style="break-inside:avoid">
+  <div style="font-weight:600;margin-bottom:4px">Mods, Utilities, CurseForge import</div>
+  <p style="margin:0">All three follow one pattern: a screen title, one sentence of Caption text explaining what the screen does, then a card per operation containing the operation's title, a one-line description, and its single action button. The Mods scanner additionally lists detected client-only mods in a table (themed header, 1px row rules, no zebra striping) with a checkbox column and one “Move selected” button beneath. Destructive operations (cache purge) use the destructive button and a confirmation dialog at elevation level 3.</p>
+</div>
+
+<h2 style="font-family:'Inter',sans-serif;font-weight:500;font-size:15pt;margin:32px 0 10px;padding-bottom:6px;border-bottom:1px solid #e4e7f5">10. Copy conventions</h2>
+<ul style="margin:0;padding-left:20px">
+  <li style="margin-bottom:5px">Sentence case everywhere except Kickers and tags, which are uppercase. No title case.</li>
+  <li style="margin-bottom:5px">Buttons are verbs: “Launch server”, “Stop server”, “Move selected”, “Export server pack”. Never “OK”, never “Submit”.</li>
+  <li style="margin-bottom:5px">State is described in plain language, not jargon: “Idle — no process running”, not “STATE: NO_SETTINGS”. Keep the internal state names out of the UI.</li>
+  <li style="margin-bottom:5px">Errors name the cause and the fix in that order, in one sentence each. No stack traces in the UI outside the console.</li>
+  <li>No exclamation marks, no second-person cheerfulness, no emoji.</li>
+</ul>
+
+<h2 style="font-family:'Inter',sans-serif;font-weight:500;font-size:15pt;margin:32px 0 10px;padding-bottom:6px;border-bottom:1px solid #e4e7f5">11. Acceptance checklist</h2>
+<div style="border:1px solid #e4e7f5;border-radius:8px;padding:14px 16px;break-inside:avoid">
+<ul style="margin:0;padding-left:18px;font-size:9.5pt;line-height:1.7">
+  <li>FlatLaf installed from <span style="font-family:'JetBrains Mono',monospace;font-size:9pt">Nocturne.properties</span> before the first window is built; no <span style="font-family:'JetBrains Mono',monospace;font-size:9pt">Nimbus</span>/<span style="font-family:'JetBrains Mono',monospace;font-size:9pt">Metal</span> fallback path left in.</li>
+  <li>Inter and JetBrains Mono are bundled and registered; the app renders identically on a machine with neither installed.</li>
+  <li>Grep the source: zero <span style="font-family:'JetBrains Mono',monospace;font-size:9pt">new Color(</span> outside <span style="font-family:'JetBrains Mono',monospace;font-size:9pt">Tokens</span>, zero <span style="font-family:'JetBrains Mono',monospace;font-size:9pt">new Font(</span> outside <span style="font-family:'JetBrains Mono',monospace;font-size:9pt">Tokens</span>, zero <span style="font-family:'JetBrains Mono',monospace;font-size:9pt">setBounds</span>.</li>
+  <li>No solid-filled button anywhere; no accent area larger than a tag.</li>
+  <li>Every focusable control shows the 2px accent focus ring; the whole app is operable by keyboard alone.</li>
+  <li>All five lifecycle states (first run, idle, installing, running, crashed) render correctly and are reachable in a manual pass.</li>
+  <li>Window resizes from 1100×740 to maximised with no clipped text and no fixed-width panel stranded mid-window.</li>
+  <li>No starfield, gradient flood, glow, emoji or decorative animation remains.</li>
+</ul>
+</div>
+
+<p style="margin:22px 0 0;font-size:9pt;color:#75798c;border-top:1px solid #e4e7f5;padding-top:10px">Anything not specified here is a decision to raise, not to invent. When in doubt, choose the option that removes an element.</p>
+
+</div>
+</doc-page>
+
+</x-dc>
+</body>
+</html>

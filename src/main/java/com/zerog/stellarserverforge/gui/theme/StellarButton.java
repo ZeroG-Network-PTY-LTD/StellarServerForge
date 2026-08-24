@@ -12,16 +12,17 @@ import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
 
 /**
- * A flat, rounded, glowing button matching the Stellar theme — Swing's default {@link JButton}
- * painting ignores most color customization under most look-and-feels, so this paints itself.
+ * A Nocturne button — every button in the system is outlined on a transparent ground; there is no
+ * solid-filled button. PRIMARY marks the one main action in a screen region, SECONDARY is
+ * everything else, GHOST is for Back/Cancel-weight actions, DANGER is for destructive actions.
  */
 public class StellarButton extends JButton {
 
-    /** Visual weight: PRIMARY for the main action, SECONDARY for everything else, DANGER for destructive actions. */
-    public enum Variant { PRIMARY, SECONDARY, DANGER }
+    public enum Variant { PRIMARY, SECONDARY, GHOST, DANGER }
 
     private final Variant variant;
     private boolean hovered;
+    private boolean pressedPaint;
 
     public StellarButton(String text) {
         this(text, Variant.SECONDARY);
@@ -30,8 +31,8 @@ public class StellarButton extends JButton {
     public StellarButton(String text, Variant variant) {
         super(text);
         this.variant = variant;
-        setFont(StellarTheme.FONT_LABEL);
-        setForeground(StellarTheme.TEXT_PRIMARY);
+        setFont(StellarTheme.FONT_BODY);
+        setForeground(textColor());
         setContentAreaFilled(false);
         setFocusPainted(false);
         setBorderPainted(false);
@@ -49,24 +50,48 @@ public class StellarButton extends JButton {
             @Override
             public void mouseExited(MouseEvent e) {
                 hovered = false;
+                pressedPaint = false;
+                repaint();
+            }
+
+            @Override
+            public void mousePressed(MouseEvent e) {
+                pressedPaint = true;
+                repaint();
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                pressedPaint = false;
                 repaint();
             }
         });
     }
 
-    private Color baseColor() {
+    private Color borderColor() {
         return switch (variant) {
-            case PRIMARY -> new Color(0x2E, 0x3E, 0xA8);
-            case SECONDARY -> new Color(0x1C, 0x20, 0x40);
-            case DANGER -> new Color(0x7A, 0x22, 0x2E);
+            case PRIMARY -> StellarTheme.ACCENT;
+            case SECONDARY -> StellarTheme.NEUTRAL_700;
+            case GHOST -> null;
+            case DANGER -> StellarTheme.STATUS_FAILED;
         };
     }
 
-    private Color accentColor() {
+    private Color hoverBorderColor() {
         return switch (variant) {
-            case PRIMARY -> StellarTheme.STAR_CYAN;
-            case SECONDARY -> StellarTheme.PANEL_BORDER;
-            case DANGER -> StellarTheme.ERROR_RED;
+            case PRIMARY -> StellarTheme.ACCENT_400;
+            case SECONDARY -> StellarTheme.ACCENT_400;
+            case GHOST -> null;
+            case DANGER -> StellarTheme.STATUS_FAILED;
+        };
+    }
+
+    private Color textColor() {
+        return switch (variant) {
+            case PRIMARY -> StellarTheme.ACCENT_300;
+            case SECONDARY -> StellarTheme.TEXT_PRIMARY;
+            case GHOST -> StellarTheme.TEXT_SECONDARY;
+            case DANGER -> StellarTheme.STATUS_FAILED;
         };
     }
 
@@ -77,18 +102,36 @@ public class StellarButton extends JButton {
 
         int w = getWidth();
         int h = getHeight();
-        float arc = h * 0.55f;
-        RoundRectangle2D shape = new RoundRectangle2D.Float(1, 1, w - 2, h - 2, arc, arc);
+        float arc = StellarTheme.RADIUS_CONTROL * 2f;
+        RoundRectangle2D shape = new RoundRectangle2D.Float(0.5f, 0.5f, w - 1, h - 1, arc, arc);
 
-        Color base = baseColor();
-        Color fill = isEnabled() ? (hovered ? lighten(base, 0.18f) : base) : new Color(0x15, 0x17, 0x2A);
-        g2.setColor(fill);
-        g2.fill(shape);
+        if (isEnabled()) {
+            if (pressedPaint) {
+                g2.setColor(StellarTheme.ACCENT_800);
+                g2.fill(shape);
+                setForeground(StellarTheme.ACCENT_200);
+            } else if (hovered) {
+                g2.setColor(StellarTheme.ACCENT_900);
+                g2.fill(shape);
+                setForeground(textColor());
+            } else {
+                setForeground(textColor());
+            }
 
-        Color border = isEnabled() ? accentColor() : StellarTheme.TEXT_MUTED;
-        g2.setColor(hovered && isEnabled() ? border : withAlpha(border, 0.55f));
-        g2.setStroke(new java.awt.BasicStroke(hovered ? 1.6f : 1f));
-        g2.draw(shape);
+            Color border = hovered ? hoverBorderColor() : borderColor();
+            if (border != null) {
+                g2.setColor(border);
+                g2.setStroke(new java.awt.BasicStroke(1f));
+                g2.draw(shape);
+            }
+        } else {
+            setForeground(withAlpha(textColor(), 0.45f));
+            Color border = borderColor();
+            if (border != null) {
+                g2.setColor(withAlpha(border, 0.45f));
+                g2.draw(shape);
+            }
+        }
 
         g2.dispose();
         super.paintComponent(g);
@@ -97,14 +140,7 @@ public class StellarButton extends JButton {
     @Override
     public Dimension getPreferredSize() {
         Dimension d = super.getPreferredSize();
-        return new Dimension(Math.max(d.width, 60), Math.max(d.height, 30));
-    }
-
-    private static Color lighten(Color c, float amount) {
-        int r = (int) Math.min(255, c.getRed() + 255 * amount);
-        int g = (int) Math.min(255, c.getGreen() + 255 * amount);
-        int b = (int) Math.min(255, c.getBlue() + 255 * amount);
-        return new Color(r, g, b);
+        return new Dimension(Math.max(d.width, 60), Math.max(d.height, 34));
     }
 
     private static Color withAlpha(Color c, float alpha) {

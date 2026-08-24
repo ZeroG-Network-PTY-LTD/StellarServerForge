@@ -38,24 +38,24 @@ public class ModsDialog extends JDialog {
         this.ctx = ctx;
         this.settings = settings;
 
-        getContentPane().setBackground(StellarTheme.DEEP_SPACE);
+        getContentPane().setBackground(StellarTheme.BG);
         setLayout(new BorderLayout(10, 10));
         ((JComponent) getContentPane()).setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
 
         infoArea.setEditable(false);
         infoArea.setLineWrap(true);
         infoArea.setWrapStyleWord(true);
-        infoArea.setBackground(StellarTheme.VOID_BLACK);
-        infoArea.setForeground(StellarTheme.STAR_CYAN);
+        infoArea.setBackground(StellarTheme.CONSOLE_BG);
+        infoArea.setForeground(StellarTheme.NEUTRAL_100);
         infoArea.setFont(StellarTheme.FONT_MONO);
         JPanel north = new JPanel(new BorderLayout());
         north.setOpaque(false);
-        north.add(StellarLabels.heading("Cargo Bay — Mods"), BorderLayout.NORTH);
+        north.add(StellarLabels.heading("Mods"), BorderLayout.NORTH);
         north.add(new JScrollPane(infoArea), BorderLayout.CENTER);
         add(north, BorderLayout.NORTH);
 
         clientModsList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
-        clientModsList.setBackground(StellarTheme.DEEP_SPACE);
+        clientModsList.setBackground(StellarTheme.SURFACE);
         clientModsList.setForeground(StellarTheme.TEXT_PRIMARY);
         clientModsList.setCellRenderer(new DefaultListCellRenderer() {
             @Override
@@ -73,11 +73,11 @@ public class ModsDialog extends JDialog {
 
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         buttons.setOpaque(false);
-        StellarButton scanClientButton = new StellarButton("Scan for Client-Only Mods", StellarButton.Variant.PRIMARY);
-        StellarButton moveButton = new StellarButton("Move Selected to CLIENTMODS");
-        StellarButton mcreatorButton = new StellarButton("Scan for MCreator Mods");
-        StellarButton listButton = new StellarButton("List Mods Folder");
-        StellarButton closeButton = new StellarButton("Close");
+        StellarButton scanClientButton = new StellarButton("Scan for client-only mods", StellarButton.Variant.PRIMARY);
+        StellarButton moveButton = new StellarButton("Move selected", StellarButton.Variant.SECONDARY);
+        StellarButton mcreatorButton = new StellarButton("Scan for MCreator mods", StellarButton.Variant.SECONDARY);
+        StellarButton listButton = new StellarButton("List mods folder", StellarButton.Variant.SECONDARY);
+        StellarButton closeButton = new StellarButton("Close", StellarButton.Variant.GHOST);
         buttons.add(scanClientButton);
         buttons.add(moveButton);
         buttons.add(mcreatorButton);

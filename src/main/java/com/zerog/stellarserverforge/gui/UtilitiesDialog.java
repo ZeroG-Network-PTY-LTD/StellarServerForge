@@ -26,7 +26,7 @@ public class UtilitiesDialog extends JDialog {
         this.ctx = ctx;
         this.settings = settings;
 
-        getContentPane().setBackground(StellarTheme.DEEP_SPACE);
+        getContentPane().setBackground(StellarTheme.BG);
         setLayout(new BorderLayout(10, 10));
         ((JComponent) getContentPane()).setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
 
@@ -41,12 +41,12 @@ public class UtilitiesDialog extends JDialog {
         add(tabs, BorderLayout.NORTH);
 
         logArea.setEditable(false);
-        logArea.setBackground(StellarTheme.VOID_BLACK);
-        logArea.setForeground(StellarTheme.STAR_CYAN);
+        logArea.setBackground(StellarTheme.CONSOLE_BG);
+        logArea.setForeground(StellarTheme.NEUTRAL_100);
         logArea.setFont(StellarTheme.FONT_MONO);
         add(new JScrollPane(logArea), BorderLayout.CENTER);
 
-        StellarButton closeButton = new StellarButton("Close");
+        StellarButton closeButton = new StellarButton("Close", StellarButton.Variant.GHOST);
         closeButton.addActionListener(e -> dispose());
         JPanel south = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         south.setOpaque(false);
@@ -64,14 +64,14 @@ public class UtilitiesDialog extends JDialog {
     private JPanel tabPanel() {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         panel.setOpaque(false);
-        panel.setBackground(StellarTheme.DEEP_SPACE);
+        panel.setBackground(StellarTheme.BG);
         return panel;
     }
 
     private JPanel buildIconTab() {
         JPanel panel = tabPanel();
-        StellarButton defaultButton = new StellarButton("Generate Default Icon", StellarButton.Variant.PRIMARY);
-        StellarButton customButton = new StellarButton("Generate Custom Icon...");
+        StellarButton defaultButton = new StellarButton("Generate default icon", StellarButton.Variant.PRIMARY);
+        StellarButton customButton = new StellarButton("Generate custom icon", StellarButton.Variant.SECONDARY);
         panel.add(defaultButton);
         panel.add(customButton);
 
@@ -107,12 +107,12 @@ public class UtilitiesDialog extends JDialog {
     private JPanel buildZipTab() {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setOpaque(false);
-        panel.setBackground(StellarTheme.DEEP_SPACE);
+        panel.setBackground(StellarTheme.BG);
         DefaultListModel<String> model = new DefaultListModel<>();
         ctx.serverPackZipService.defaultCandidates(ctx.serverDir).forEach(model::addElement);
         JList<String> list = new JList<>(model);
         list.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
-        list.setBackground(StellarTheme.DEEP_SPACE);
+        list.setBackground(StellarTheme.SURFACE);
         list.setForeground(StellarTheme.TEXT_PRIMARY);
         for (int i = 0; i < model.size(); i++) {
             list.addSelectionInterval(i, i);
@@ -122,7 +122,7 @@ public class UtilitiesDialog extends JDialog {
         JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT));
         row.setOpaque(false);
         JTextField nameField = new JTextField(settings.getMinecraftVersion() + "-server-pack", 20);
-        StellarButton zipButton = new StellarButton("Create ZIP", StellarButton.Variant.PRIMARY);
+        StellarButton zipButton = new StellarButton("Export server pack", StellarButton.Variant.PRIMARY);
         row.add(StellarLabels.body("File name:"));
         row.add(nameField);
         row.add(zipButton);

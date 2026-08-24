@@ -42,19 +42,23 @@ public class DashboardPanel extends JPanel {
     private final JLabel ramLabel = StellarLabels.value("");
     private final JLabel portLabel = StellarLabels.value("");
     private final JLabel javaOverrideLabel = StellarLabels.value("");
-    private final StatusPill statusPill = new StatusPill();
+    private final com.zerog.stellarserverforge.gui.theme.StellarTag statusTag =
+            new com.zerog.stellarserverforge.gui.theme.StellarTag("Idle",
+                    com.zerog.stellarserverforge.gui.theme.StellarTag.Variant.NEUTRAL, StellarTheme.STATUS_IDLE);
 
-    private final StellarButton launchButton = new StellarButton("▶ Launch", StellarButton.Variant.PRIMARY);
-    private final StellarButton stopButton = new StellarButton("■ Stop", StellarButton.Variant.DANGER);
-    private final StellarButton settingsButton = new StellarButton("Re-enter Settings");
-    private final StellarButton ramButton = new StellarButton("Change RAM");
-    private final StellarButton javaOverrideButton = new StellarButton("Cycle Java Mode");
-    private final StellarButton portButton = new StellarButton("Change Port");
-    private final StellarButton upnpButton = new StellarButton("UPnP...");
-    private final StellarButton firewallButton = new StellarButton("Check Firewall");
-    private final StellarButton modsButton = new StellarButton("Mods...");
-    private final StellarButton utilitiesButton = new StellarButton("Utilities...");
-    private final StellarButton curseForgeButton = new StellarButton("Import CurseForge...");
+    private final StellarButton launchButton = new StellarButton("Launch server", StellarButton.Variant.PRIMARY);
+    private final StellarButton stopButton = new StellarButton("Stop server", StellarButton.Variant.DANGER);
+    private final StellarButton settingsButton = new StellarButton("Re-run setup wizard", StellarButton.Variant.SECONDARY);
+    private final StellarButton ramButton = new StellarButton("Change RAM", StellarButton.Variant.SECONDARY);
+    private final StellarButton javaOverrideButton = new StellarButton("Cycle Java mode", StellarButton.Variant.SECONDARY);
+    private final StellarButton modLoaderVersionButton = new StellarButton("Change modloader version", StellarButton.Variant.SECONDARY);
+    private final StellarButton portButton = new StellarButton("Change port", StellarButton.Variant.SECONDARY);
+    private final StellarButton upnpButton = new StellarButton("UPnP", StellarButton.Variant.SECONDARY);
+    private final StellarButton firewallButton = new StellarButton("Check firewall", StellarButton.Variant.SECONDARY);
+    private final StellarButton modsButton = new StellarButton("Mods", StellarButton.Variant.SECONDARY);
+    private final StellarButton utilitiesButton = new StellarButton("Utilities", StellarButton.Variant.SECONDARY);
+    private final StellarButton curseForgeButton = new StellarButton("Import CurseForge profile", StellarButton.Variant.SECONDARY);
+    private final StellarButton zeroGModsButton = new StellarButton("ZeroG Network mods", StellarButton.Variant.SECONDARY);
     private final JCheckBox autoRestartCheckbox = new JCheckBox("Auto-restart on crash (up to 5x)");
 
     private final JTextArea console = new JTextArea();
@@ -68,29 +72,76 @@ public class DashboardPanel extends JPanel {
         this.runner = new ServerProcessRunner(ctx.serverDir);
 
         setOpaque(false);
-        setLayout(new BorderLayout(14, 14));
-        setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
+        setLayout(new BorderLayout(0, StellarTheme.SPACE_17));
+        setBorder(BorderFactory.createEmptyBorder(StellarTheme.SPACE_22, StellarTheme.SPACE_22,
+                StellarTheme.SPACE_22, StellarTheme.SPACE_22));
 
-        add(buildHeader(), BorderLayout.NORTH);
+        JPanel north = new JPanel(new BorderLayout(0, StellarTheme.SPACE_17));
+        north.setOpaque(false);
+        north.add(buildNavBar(), BorderLayout.NORTH);
+        north.add(buildHeader(), BorderLayout.SOUTH);
+        add(north, BorderLayout.NORTH);
         add(buildConsole(), BorderLayout.CENTER);
-        add(buildFooter(), BorderLayout.SOUTH);
+
+        JPanel south = new JPanel(new BorderLayout(0, StellarTheme.SPACE_8));
+        south.setOpaque(false);
+        south.add(buildFooter(), BorderLayout.NORTH);
+        south.add(buildLinkBar(), BorderLayout.SOUTH);
+        add(south, BorderLayout.SOUTH);
 
         refreshLabels();
         stopButton.setEnabled(false);
     }
 
+    private JComponent buildNavBar() {
+        JPanel bar = new JPanel(new BorderLayout());
+        bar.setOpaque(false);
+        bar.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createEmptyBorder(0, 0, StellarTheme.SPACE_11, 0),
+                BorderFactory.createMatteBorder(0, 0, 1, 0, StellarTheme.NEUTRAL_800)));
+
+        JLabel wordmark = new JLabel("StellarServerForge");
+        wordmark.setFont(StellarTheme.FONT_HEADING);
+        wordmark.setForeground(StellarTheme.TEXT_PRIMARY);
+        wordmark.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, StellarTheme.SPACE_11));
+
+        JPanel links = new JPanel(new FlowLayout(FlowLayout.LEFT, StellarTheme.SPACE_6, 0));
+        links.setOpaque(false);
+        links.add(new com.zerog.stellarserverforge.gui.theme.StellarNavLink(
+                "Mission Control", true, null));
+        links.add(new com.zerog.stellarserverforge.gui.theme.StellarNavLink(
+                "Mods", false, this::onOpenMods));
+        links.add(new com.zerog.stellarserverforge.gui.theme.StellarNavLink(
+                "Utilities", false, this::onOpenUtilities));
+        links.add(new com.zerog.stellarserverforge.gui.theme.StellarNavLink(
+                "Settings", false, onReenterSettings));
+
+        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        left.setOpaque(false);
+        left.add(wordmark);
+        left.add(links);
+
+        bar.add(left, BorderLayout.WEST);
+        bar.add(statusTag, BorderLayout.EAST);
+        return bar;
+    }
+
     private JComponent buildHeader() {
         StellarPanel card = new StellarPanel(new BorderLayout());
-        card.setBorder(BorderFactory.createEmptyBorder(16, 20, 16, 20));
+        card.setBorder(BorderFactory.createEmptyBorder(StellarTheme.SPACE_17, StellarTheme.SPACE_17,
+                StellarTheme.SPACE_17, StellarTheme.SPACE_17));
 
-        JLabel title = StellarLabels.title("Mission Control");
-        JPanel titleRow = new JPanel(new BorderLayout());
+        JPanel titleRow = new JPanel();
         titleRow.setOpaque(false);
-        titleRow.add(title, BorderLayout.WEST);
-        titleRow.add(statusPill, BorderLayout.EAST);
+        titleRow.setLayout(new BoxLayout(titleRow, BoxLayout.Y_AXIS));
+        titleRow.add(StellarLabels.kicker("Working directory"));
+        JLabel dirLabel = new JLabel(ctx.serverDir.toString());
+        dirLabel.setFont(StellarTheme.FONT_MONO);
+        dirLabel.setForeground(StellarTheme.TEXT_PRIMARY);
+        titleRow.add(dirLabel);
         card.add(titleRow, BorderLayout.NORTH);
 
-        JPanel grid = new JPanel(new GridLayout(0, 4, 18, 6));
+        JPanel grid = new JPanel(new GridLayout(0, 3, 18, 12));
         grid.setOpaque(false);
         grid.setBorder(BorderFactory.createEmptyBorder(12, 0, 0, 0));
         addStat(grid, "Minecraft", mcVersionLabel);
@@ -108,7 +159,7 @@ public class DashboardPanel extends JPanel {
         JPanel cell = new JPanel();
         cell.setOpaque(false);
         cell.setLayout(new BoxLayout(cell, BoxLayout.Y_AXIS));
-        cell.add(StellarLabels.muted(label.toUpperCase()));
+        cell.add(StellarLabels.kicker(label));
         cell.add(valueLabel);
         grid.add(cell);
     }
@@ -116,14 +167,15 @@ public class DashboardPanel extends JPanel {
     private JComponent buildConsole() {
         console.setEditable(false);
         console.setFont(StellarTheme.FONT_MONO);
-        console.setBackground(StellarTheme.VOID_BLACK);
-        console.setForeground(StellarTheme.STAR_CYAN);
-        console.setCaretColor(StellarTheme.STAR_CYAN);
-        console.setBorder(BorderFactory.createEmptyBorder(10, 12, 10, 12));
+        console.setBackground(StellarTheme.CONSOLE_BG);
+        console.setForeground(StellarTheme.NEUTRAL_100);
+        console.setCaretColor(StellarTheme.ACCENT);
+        console.setBorder(BorderFactory.createEmptyBorder(StellarTheme.SPACE_17, StellarTheme.SPACE_17,
+                StellarTheme.SPACE_17, StellarTheme.SPACE_17));
 
         JScrollPane scroll = new JScrollPane(console);
-        scroll.setBorder(BorderFactory.createLineBorder(StellarTheme.PANEL_BORDER));
-        scroll.getViewport().setBackground(StellarTheme.VOID_BLACK);
+        scroll.setBorder(BorderFactory.createEmptyBorder());
+        scroll.getViewport().setBackground(StellarTheme.CONSOLE_BG);
 
         StellarPanel card = new StellarPanel(new BorderLayout());
         card.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
@@ -132,6 +184,28 @@ public class DashboardPanel extends JPanel {
         card.add(heading, BorderLayout.NORTH);
         card.add(scroll, BorderLayout.CENTER);
         return card;
+    }
+
+    private JComponent buildLinkBar() {
+        String repo = "https://github.com/ZeroG-Network-PTY-LTD/StellarServerForge";
+        JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT, StellarTheme.SPACE_8, 0));
+        bar.setOpaque(false);
+        bar.add(new com.zerog.stellarserverforge.gui.theme.StellarLinkIcon(
+                com.zerog.stellarserverforge.gui.theme.StellarLinkIcon.Kind.DISCORD, "Discord",
+                "https://discord.gg/dUGAQF2Mga"));
+        bar.add(new com.zerog.stellarserverforge.gui.theme.StellarLinkIcon(
+                com.zerog.stellarserverforge.gui.theme.StellarLinkIcon.Kind.GITHUB, "GitHub", repo));
+        bar.add(new com.zerog.stellarserverforge.gui.theme.StellarLinkIcon(
+                com.zerog.stellarserverforge.gui.theme.StellarLinkIcon.Kind.WIKI, "Wiki", repo + "/wiki"));
+        bar.add(new com.zerog.stellarserverforge.gui.theme.StellarLinkIcon(
+                com.zerog.stellarserverforge.gui.theme.StellarLinkIcon.Kind.ISSUES, "Issue tracker", repo + "/issues"));
+        bar.add(new com.zerog.stellarserverforge.gui.theme.StellarLinkIcon(
+                com.zerog.stellarserverforge.gui.theme.StellarLinkIcon.Kind.WEBSITE, "Website",
+                "https://zerognetwork.co.za"));
+        bar.add(new com.zerog.stellarserverforge.gui.theme.StellarLinkIcon(
+                com.zerog.stellarserverforge.gui.theme.StellarLinkIcon.Kind.KOFI, "Ko-fi",
+                "https://ko-fi.com/mrwhiteflamesyt"));
+        return bar;
     }
 
     private JComponent buildFooter() {
@@ -151,10 +225,12 @@ public class DashboardPanel extends JPanel {
         toolRow.setOpaque(false);
         toolRow.add(ramButton);
         toolRow.add(javaOverrideButton);
+        toolRow.add(modLoaderVersionButton);
         toolRow.add(portButton);
         toolRow.add(upnpButton);
         toolRow.add(firewallButton);
         toolRow.add(modsButton);
+        toolRow.add(zeroGModsButton);
         toolRow.add(utilitiesButton);
         toolRow.add(curseForgeButton);
         toolRow.add(settingsButton);
@@ -167,12 +243,14 @@ public class DashboardPanel extends JPanel {
         settingsButton.addActionListener(e -> onReenterSettings.run());
         ramButton.addActionListener(e -> onChangeRam());
         javaOverrideButton.addActionListener(e -> onCycleJavaOverride());
+        modLoaderVersionButton.addActionListener(e -> onChangeModLoaderVersion());
         portButton.addActionListener(e -> onChangePort());
         upnpButton.addActionListener(e -> onOpenUpnp());
         firewallButton.addActionListener(e -> onCheckFirewall());
         modsButton.addActionListener(e -> onOpenMods());
         utilitiesButton.addActionListener(e -> onOpenUtilities());
         curseForgeButton.addActionListener(e -> onOpenCurseForgeImport());
+        zeroGModsButton.addActionListener(e -> onOpenZeroGMods());
         return card;
     }
 
@@ -187,6 +265,10 @@ public class DashboardPanel extends JPanel {
 
     private void onOpenUtilities() {
         new UtilitiesDialog(ownerFrame(), ctx, settings).setVisible(true);
+    }
+
+    private void onOpenZeroGMods() {
+        new ZeroGModsDialog(ownerFrame(), ctx, settings).setVisible(true);
     }
 
     private void onOpenCurseForgeImport() {
@@ -273,6 +355,10 @@ public class DashboardPanel extends JPanel {
         }
     }
 
+    private void onChangeModLoaderVersion() {
+        new ModLoaderVersionDialog(ownerFrame(), ctx, settings, this::refreshLabels).setVisible(true);
+    }
+
     private void onCycleJavaOverride() {
         JavaOverrideMode next = switch (settings.getJavaOverrideMode()) {
             case AUTOMATIC -> JavaOverrideMode.SYSTEM_PATH;
@@ -306,6 +392,7 @@ public class DashboardPanel extends JPanel {
             case SYSTEM_PATH -> "System PATH";
             case FORCE_MANAGED -> "Forced managed";
         });
+        modLoaderVersionButton.setEnabled(settings.getModLoader() != ModLoader.VANILLA);
     }
 
     private void appendConsole(String line) {
@@ -316,7 +403,24 @@ public class DashboardPanel extends JPanel {
     }
 
     private void setStatus(String status) {
-        SwingUtilities.invokeLater(() -> statusPill.setStatus(status));
+        SwingUtilities.invokeLater(() -> {
+            statusTag.setText(status);
+            String s = status.toLowerCase();
+            Color dot;
+            var variant = com.zerog.stellarserverforge.gui.theme.StellarTag.Variant.NEUTRAL;
+            if (s.contains("running")) {
+                dot = StellarTheme.STATUS_RUNNING;
+                variant = com.zerog.stellarserverforge.gui.theme.StellarTag.Variant.ACCENT;
+            } else if (s.contains("fail") || s.contains("error")) {
+                dot = StellarTheme.STATUS_FAILED;
+            } else if (s.equals("idle")) {
+                dot = StellarTheme.STATUS_IDLE;
+            } else {
+                dot = StellarTheme.STATUS_WARNING;
+            }
+            statusTag.setDotColor(dot);
+            statusTag.setVariant(variant);
+        });
     }
 
     private void onLaunch(ActionEvent e) {
@@ -521,55 +625,5 @@ public class DashboardPanel extends JPanel {
     public void updateSettings(ServerSettings settings) {
         this.settings = settings;
         refreshLabels();
-    }
-
-    /** A small rounded status pill with a color-coded dot, replacing the plain "Idle"/"Running" label. */
-    private static final class StatusPill extends JPanel {
-        private String status = "Idle";
-
-        StatusPill() {
-            setOpaque(false);
-            setPreferredSize(new Dimension(140, 28));
-        }
-
-        void setStatus(String status) {
-            this.status = status;
-            repaint();
-        }
-
-        private Color dotColor() {
-            String s = status.toLowerCase();
-            if (s.contains("running")) {
-                return StellarTheme.SUCCESS_GREEN;
-            }
-            if (s.contains("fail") || s.contains("error")) {
-                return StellarTheme.ERROR_RED;
-            }
-            if (s.equals("idle")) {
-                return StellarTheme.TEXT_MUTED;
-            }
-            return StellarTheme.STELLAR_GOLD;
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            int h = getHeight();
-            int w = getWidth();
-            g2.setColor(new Color(0, 0, 0, 90));
-            g2.fillRoundRect(0, 0, w, h, h, h);
-
-            Color dot = dotColor();
-            g2.setColor(dot);
-            int dotSize = 10;
-            g2.fillOval(12, (h - dotSize) / 2, dotSize, dotSize);
-
-            g2.setFont(StellarTheme.FONT_LABEL);
-            g2.setColor(StellarTheme.TEXT_PRIMARY);
-            var fm = g2.getFontMetrics();
-            g2.drawString(status, 30, (h + fm.getAscent()) / 2 - 2);
-            g2.dispose();
-        }
     }
 }

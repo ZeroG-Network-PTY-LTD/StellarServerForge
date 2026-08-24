@@ -32,15 +32,15 @@ public class CurseForgeImportDialog extends JDialog {
     private final JLabel statusLabel = StellarLabels.muted(" ");
 
     public CurseForgeImportDialog(Frame owner, AppContext ctx, Consumer<ServerSettings> onImported) {
-        super(owner, "Import CurseForge Profile", true);
+        super(owner, "Import CurseForge profile", true);
         this.ctx = ctx;
         this.onImported = onImported;
 
-        getContentPane().setBackground(StellarTheme.DEEP_SPACE);
+        getContentPane().setBackground(StellarTheme.BG);
         setLayout(new BorderLayout(10, 10));
         ((JComponent) getContentPane()).setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
 
-        list.setBackground(StellarTheme.DEEP_SPACE);
+        list.setBackground(StellarTheme.SURFACE);
         list.setForeground(StellarTheme.TEXT_PRIMARY);
         list.setCellRenderer(new DefaultListCellRenderer() {
             @Override
@@ -52,15 +52,15 @@ public class CurseForgeImportDialog extends JDialog {
         add(new JScrollPane(list), BorderLayout.CENTER);
         JPanel north = new JPanel(new BorderLayout());
         north.setOpaque(false);
-        north.add(StellarLabels.heading("CurseForge Warp Import"), BorderLayout.NORTH);
+        north.add(StellarLabels.heading("Import CurseForge profile"), BorderLayout.NORTH);
         north.add(statusLabel, BorderLayout.SOUTH);
         add(north, BorderLayout.NORTH);
 
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         buttons.setOpaque(false);
-        StellarButton browseButton = new StellarButton("Browse for CurseForge Instances Folder...");
-        StellarButton importButton = new StellarButton("Import Selected", StellarButton.Variant.PRIMARY);
-        StellarButton cancelButton = new StellarButton("Cancel");
+        StellarButton browseButton = new StellarButton("Browse for instances folder", StellarButton.Variant.SECONDARY);
+        StellarButton importButton = new StellarButton("Import selected", StellarButton.Variant.PRIMARY);
+        StellarButton cancelButton = new StellarButton("Cancel", StellarButton.Variant.GHOST);
         buttons.add(browseButton);
         buttons.add(importButton);
         buttons.add(cancelButton);

@@ -35,10 +35,10 @@ public class SetupWizardPanel extends JPanel {
 
     private final JTextField mcVersionField = themedField(12);
     private final JLabel mcVersionStatus = StellarLabels.muted(" ");
-    private final StellarButton mcNextButton = new StellarButton("Next →", StellarButton.Variant.PRIMARY);
+    private final StellarButton mcNextButton = new StellarButton("Continue", StellarButton.Variant.PRIMARY);
 
     private final ButtonGroup modLoaderGroup = new ButtonGroup();
-    private final StellarButton modLoaderNextButton = new StellarButton("Next →", StellarButton.Variant.PRIMARY);
+    private final StellarButton modLoaderNextButton = new StellarButton("Continue", StellarButton.Variant.PRIMARY);
     private ModLoader chosenModLoader = ModLoader.VANILLA;
 
     private final JRadioButton useNewestRadio = themedRadio("Use the newest published version", true);
@@ -46,19 +46,45 @@ public class SetupWizardPanel extends JPanel {
     private final JTextField customVersionField = themedField(12);
     private final JLabel modLoaderVersionInfo = StellarLabels.muted(" ");
     private final JLabel modLoaderVersionStatus = StellarLabels.muted(" ");
-    private final StellarButton modLoaderVersionNextButton = new StellarButton("Next →", StellarButton.Variant.PRIMARY);
+    private final StellarButton modLoaderVersionNextButton = new StellarButton("Continue", StellarButton.Variant.PRIMARY);
     private String resolvedNewestModLoaderVersion;
 
     private final ButtonGroup javaVersionGroup = new ButtonGroup();
     private final JPanel javaVersionOptionsPanel = themedPanel(null);
-    private final StellarButton javaNextButton = new StellarButton("Next →", StellarButton.Variant.PRIMARY);
+    private final StellarButton javaNextButton = new StellarButton("Continue", StellarButton.Variant.PRIMARY);
 
     private final JSpinner ramSpinner = new JSpinner(new SpinnerNumberModel(4, 1, 128, 1));
-    private final StellarButton finishButton = new StellarButton("Launch Into Orbit ✨", StellarButton.Variant.PRIMARY);
+    private final StellarButton finishButton = new StellarButton("Install", StellarButton.Variant.PRIMARY);
 
     private McVersion validatedMcVersion;
     private int chosenJavaVersion;
     private String chosenModLoaderVersion = "";
+
+    private final java.util.ArrayDeque<String[]> history = new java.util.ArrayDeque<>();
+    private String currentStep = "mc";
+
+    private void goToStep(String cardName, String indicatorText) {
+        history.push(new String[]{currentStep, stepIndicator.getText()});
+        currentStep = cardName;
+        stepIndicator.setText(indicatorText);
+        steps.show(stepContainer, cardName);
+    }
+
+    private void goBack() {
+        if (history.isEmpty()) {
+            return;
+        }
+        String[] previous = history.pop();
+        currentStep = previous[0];
+        stepIndicator.setText(previous[1]);
+        steps.show(stepContainer, currentStep);
+    }
+
+    private StellarButton backButton() {
+        StellarButton back = new StellarButton("Back", StellarButton.Variant.GHOST);
+        back.addActionListener(e -> goBack());
+        return back;
+    }
 
     public SetupWizardPanel(AppContext ctx, Consumer<ServerSettings> onComplete) {
         this.ctx = ctx;
@@ -77,8 +103,8 @@ public class SetupWizardPanel extends JPanel {
         header.add(title);
         header.add(subtitle);
         header.add(Box.createVerticalStrut(4));
-        stepIndicator.setFont(StellarTheme.FONT_LABEL);
-        stepIndicator.setForeground(StellarTheme.STELLAR_GOLD);
+        stepIndicator.setFont(StellarTheme.FONT_KICKER);
+        stepIndicator.setForeground(StellarTheme.ACCENT_300);
         header.add(stepIndicator);
         card.add(header, BorderLayout.NORTH);
 
@@ -101,12 +127,12 @@ public class SetupWizardPanel extends JPanel {
 
     private static JTextField themedField(int columns) {
         JTextField field = new JTextField(columns);
-        field.setBackground(StellarTheme.VOID_BLACK);
-        field.setForeground(StellarTheme.STAR_CYAN);
-        field.setCaretColor(StellarTheme.STAR_CYAN);
+        field.setBackground(StellarTheme.FIELD_BG);
+        field.setForeground(StellarTheme.TEXT_PRIMARY);
+        field.setCaretColor(StellarTheme.ACCENT);
         field.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(StellarTheme.PANEL_BORDER),
-                BorderFactory.createEmptyBorder(4, 8, 4, 8)));
+                BorderFactory.createLineBorder(StellarTheme.NEUTRAL_800),
+                BorderFactory.createEmptyBorder(6, 10, 6, 10)));
         field.setFont(StellarTheme.FONT_BODY);
         return field;
     }
@@ -121,12 +147,12 @@ public class SetupWizardPanel extends JPanel {
 
     private static void themeSpinner(JSpinner spinner) {
         spinner.setFont(StellarTheme.FONT_BODY);
-        spinner.setBorder(BorderFactory.createLineBorder(StellarTheme.PANEL_BORDER));
+        spinner.setBorder(BorderFactory.createLineBorder(StellarTheme.NEUTRAL_800));
         JComponent editor = spinner.getEditor();
         if (editor instanceof JSpinner.DefaultEditor defaultEditor) {
-            defaultEditor.getTextField().setBackground(StellarTheme.VOID_BLACK);
-            defaultEditor.getTextField().setForeground(StellarTheme.STAR_CYAN);
-            defaultEditor.getTextField().setCaretColor(StellarTheme.STAR_CYAN);
+            defaultEditor.getTextField().setBackground(StellarTheme.FIELD_BG);
+            defaultEditor.getTextField().setForeground(StellarTheme.TEXT_PRIMARY);
+            defaultEditor.getTextField().setCaretColor(StellarTheme.ACCENT);
             defaultEditor.getTextField().setBorder(BorderFactory.createEmptyBorder(2, 6, 2, 6));
         }
     }
@@ -138,11 +164,19 @@ public class SetupWizardPanel extends JPanel {
         panel.add(Box.createVerticalStrut(4));
         panel.add(StellarLabels.muted("e.g. 1.20.1, 1.21.1 — release versions only"));
         panel.add(Box.createVerticalStrut(10));
-        JPanel row = themedPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        row.add(mcVersionField);
-        row.add(mcNextButton);
-        panel.add(row);
+        JPanel fieldRow = themedPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        fieldRow.add(mcVersionField);
+        panel.add(fieldRow);
         panel.add(mcVersionStatus);
+        panel.add(Box.createVerticalStrut(12));
+
+        StellarButton back = backButton();
+        back.setEnabled(false);
+        JPanel row = themedPanel(new BorderLayout());
+        row.add(back, BorderLayout.WEST);
+        row.add(mcNextButton, BorderLayout.EAST);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        panel.add(row);
 
         mcNextButton.addActionListener(e -> validateMcVersion());
         mcVersionField.addActionListener(e -> validateMcVersion());
@@ -176,8 +210,7 @@ public class SetupWizardPanel extends JPanel {
                     }
                     validatedMcVersion = McVersion.parse(entered);
                     setStatus(mcVersionStatus, "Valid.", StellarTheme.SUCCESS_GREEN);
-                    stepIndicator.setText("Step 2 of 5 — Modloader");
-                    steps.show(stepContainer, "modloader");
+                    goToStep("modloader", "Step 2 of 5 — Modloader");
                 } catch (Exception ex) {
                     setStatus(mcVersionStatus, "Could not reach the Mojang version list: " + ex.getMessage(),
                             StellarTheme.ERROR_RED);
@@ -202,20 +235,19 @@ public class SetupWizardPanel extends JPanel {
         }
         panel.add(wrapper, BorderLayout.CENTER);
 
-        JPanel row = themedPanel(new FlowLayout(FlowLayout.LEFT));
-        row.add(modLoaderNextButton);
+        JPanel row = themedPanel(new BorderLayout());
+        row.add(backButton(), BorderLayout.WEST);
+        row.add(modLoaderNextButton, BorderLayout.EAST);
         panel.add(row, BorderLayout.SOUTH);
 
         modLoaderNextButton.addActionListener(e -> {
             if (chosenModLoader == ModLoader.VANILLA) {
                 chosenModLoaderVersion = "";
                 populateJavaVersionStep(validatedMcVersion);
-                stepIndicator.setText("Step 4 of 5 — Java Version");
-                steps.show(stepContainer, "java");
+                goToStep("java", "Step 4 of 5 — Java version");
             } else {
                 beginModLoaderVersionResolution();
-                stepIndicator.setText("Step 3 of 5 — " + chosenModLoader + " Version");
-                steps.show(stepContainer, "modloaderVersion");
+                goToStep("modloaderVersion", "Step 3 of 5 — " + chosenModLoader + " version");
             }
         });
         return panel;
@@ -241,8 +273,9 @@ public class SetupWizardPanel extends JPanel {
         wrapper.add(modLoaderVersionStatus);
         panel.add(wrapper, BorderLayout.CENTER);
 
-        JPanel row = themedPanel(new FlowLayout(FlowLayout.LEFT));
-        row.add(modLoaderVersionNextButton);
+        JPanel row = themedPanel(new BorderLayout());
+        row.add(backButton(), BorderLayout.WEST);
+        row.add(modLoaderVersionNextButton, BorderLayout.EAST);
         panel.add(row, BorderLayout.SOUTH);
 
         modLoaderVersionNextButton.addActionListener(e -> confirmModLoaderVersion());
@@ -304,8 +337,7 @@ public class SetupWizardPanel extends JPanel {
         if (useNewestRadio.isSelected() && resolvedNewestModLoaderVersion != null) {
             chosenModLoaderVersion = resolvedNewestModLoaderVersion;
             populateJavaVersionStep(validatedMcVersion);
-            stepIndicator.setText("Step 4 of 5 — Java Version");
-            steps.show(stepContainer, "java");
+            goToStep("java", "Step 4 of 5 — Java version");
             return;
         }
 
@@ -338,8 +370,7 @@ public class SetupWizardPanel extends JPanel {
                         chosenModLoaderVersion = entered;
                         modLoaderVersionStatus.setText(" ");
                         populateJavaVersionStep(validatedMcVersion);
-                        stepIndicator.setText("Step 4 of 5 — Java Version");
-                        steps.show(stepContainer, "java");
+                        goToStep("java", "Step 4 of 5 — Java version");
                     } else {
                         setStatus(modLoaderVersionStatus, "That version does not seem to exist on the "
                                 + chosenModLoader + " file server for Minecraft " + validatedMcVersion.raw()
@@ -376,14 +407,12 @@ public class SetupWizardPanel extends JPanel {
         wrapper.add(javaVersionOptionsPanel);
         panel.add(wrapper, BorderLayout.CENTER);
 
-        JPanel row = themedPanel(new FlowLayout(FlowLayout.LEFT));
-        row.add(javaNextButton);
+        JPanel row = themedPanel(new BorderLayout());
+        row.add(backButton(), BorderLayout.WEST);
+        row.add(javaNextButton, BorderLayout.EAST);
         panel.add(row, BorderLayout.SOUTH);
 
-        javaNextButton.addActionListener(e -> {
-            stepIndicator.setText("Step 5 of 5 — Memory");
-            steps.show(stepContainer, "ram");
-        });
+        javaNextButton.addActionListener(e -> goToStep("ram", "Step 5 of 5 — Memory"));
         return panel;
     }
 
@@ -425,8 +454,9 @@ public class SetupWizardPanel extends JPanel {
         wrapper.add(row);
         panel.add(wrapper, BorderLayout.CENTER);
 
-        JPanel bottomRow = themedPanel(new FlowLayout(FlowLayout.LEFT));
-        bottomRow.add(finishButton);
+        JPanel bottomRow = themedPanel(new BorderLayout());
+        bottomRow.add(backButton(), BorderLayout.WEST);
+        bottomRow.add(finishButton, BorderLayout.EAST);
         panel.add(bottomRow, BorderLayout.SOUTH);
 
         finishButton.addActionListener(e -> finishWizard());
