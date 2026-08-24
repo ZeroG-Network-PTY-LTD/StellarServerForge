@@ -1,0 +1,29 @@
+# Defense in depth. The real protection is keeping config.php OUTSIDE this folder entirely (see
+# README.md) — these rules are a backstop in case that isn't followed, and cover backup/editor
+# artifacts that could otherwise leak the key even with config.php itself blocked.
+
+# No directory listing.
+Options -Indexes
+
+# Block config files, and any backup/editor-artifact variant of them, from direct HTTP access.
+<FilesMatch "^config.*\.(php|bak|old|orig|save|swp|txt)$|~$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Belt-and-braces: block anything that isn't one of the two intended entry points, in case a
+# stray file (e.g. a backup made by an editor) ends up in this folder later.
+<FilesMatch "^(?!index\.php$|curseforge\.php$).*\.php$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

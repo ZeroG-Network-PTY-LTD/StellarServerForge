@@ -1,0 +1,13 @@
+name = "curseforge-proxy"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+# Recommended: attach a route on your own domain instead of the default workers.dev subdomain,
+# e.g. curseforge-proxy.zerognetwork.co.za, and point StellarServerForge's
+# CurseForgeInstallService.DEFAULT_PROXY_BASE_URL at it. Configure routes/custom domains from the
+# Cloudflare dashboard (Workers & Pages > curseforge-proxy > Settings > Domains & Routes) or via:
+#
+#   wrangler deploy --route "curseforge-proxy.zerognetwork.co.za/*"
+#
+# Also recommended (dashboard, not code): add a Cloudflare Rate Limiting rule on this route to cap
+# requests per IP, as a second layer on top of the app's own client-side 50/hour self-throttle.
