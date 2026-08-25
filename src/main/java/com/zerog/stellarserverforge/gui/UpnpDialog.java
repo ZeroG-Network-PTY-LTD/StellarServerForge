@@ -61,6 +61,7 @@ public class UpnpDialog extends JDialog {
         closeButton.addActionListener(e -> dispose());
 
         setSize(480, 220);
+        setMinimumSize(new Dimension(420, 200));
         setLocationRelativeTo(owner);
         setButtonsEnabled(false);
         refreshProtocolLabel();

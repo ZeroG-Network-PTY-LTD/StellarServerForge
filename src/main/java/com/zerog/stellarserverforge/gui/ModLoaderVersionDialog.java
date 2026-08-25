@@ -84,6 +84,7 @@ public class ModLoaderVersionDialog extends JDialog {
         cancelButton.addActionListener(e -> dispose());
 
         setSize(460, 260);
+        setMinimumSize(new Dimension(400, 240));
         setLocationRelativeTo(owner);
 
         beginResolution();

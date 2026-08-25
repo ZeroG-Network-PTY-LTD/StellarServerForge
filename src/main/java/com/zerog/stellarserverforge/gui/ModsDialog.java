@@ -93,6 +93,7 @@ public class ModsDialog extends JDialog {
         closeButton.addActionListener(e -> dispose());
 
         setSize(600, 480);
+        setMinimumSize(new Dimension(500, 380));
         setLocationRelativeTo(owner);
     }
 

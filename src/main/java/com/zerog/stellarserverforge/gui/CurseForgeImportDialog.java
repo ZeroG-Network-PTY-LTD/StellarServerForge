@@ -71,6 +71,7 @@ public class CurseForgeImportDialog extends JDialog {
         cancelButton.addActionListener(e -> dispose());
 
         setSize(560, 420);
+        setMinimumSize(new Dimension(460, 340));
         setLocationRelativeTo(owner);
 
         autoDetect();

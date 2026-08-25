@@ -104,6 +104,7 @@ public class ZeroGModsDialog extends JDialog {
         openPageButton.addActionListener(e -> openPage());
 
         setSize(720, 560);
+        setMinimumSize(new Dimension(560, 420));
         setLocationRelativeTo(owner);
 
         if (settings.getModLoader() == ModLoader.VANILLA) {

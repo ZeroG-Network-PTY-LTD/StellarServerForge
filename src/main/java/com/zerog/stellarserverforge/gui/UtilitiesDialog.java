@@ -54,6 +54,7 @@ public class UtilitiesDialog extends JDialog {
         add(south, BorderLayout.SOUTH);
 
         setSize(640, 480);
+        setMinimumSize(new Dimension(540, 380));
         setLocationRelativeTo(owner);
     }
 
