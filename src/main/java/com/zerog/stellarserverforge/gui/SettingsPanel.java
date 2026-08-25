@@ -63,7 +63,12 @@ public class SettingsPanel extends JPanel {
         columns.setOpaque(false);
         columns.add(buildServerCard());
         columns.add(buildJavaAndNetworkingCard());
-        add(columns, BorderLayout.CENTER);
+
+        JPanel centerStack = new JPanel(new BorderLayout(0, StellarTheme.SPACE_17));
+        centerStack.setOpaque(false);
+        centerStack.add(columns, BorderLayout.NORTH);
+        centerStack.add(buildZeroGModsCard(), BorderLayout.CENTER);
+        add(centerStack, BorderLayout.CENTER);
 
         statusLabel.setBorder(BorderFactory.createEmptyBorder(StellarTheme.SPACE_8, 0, 0, 0));
         add(statusLabel, BorderLayout.SOUTH);
@@ -177,6 +182,82 @@ public class SettingsPanel extends JPanel {
         firewallButton.setAlignmentX(Component.LEFT_ALIGNMENT);
         firewallButton.addActionListener(e -> onCheckFirewall.run());
         content.add(firewallButton);
+
+        card.add(content, BorderLayout.NORTH);
+        return card;
+    }
+
+    /** Lets a fork of this app point at its own mod catalog and/or CurseForge proxy instead of
+     * ZeroG Network's — the ZeroG Mods screen no longer asks for either inline, or for a personal
+     * CurseForge API key, since the hosted proxy is a stable, zero-setup default now. */
+    private JComponent buildZeroGModsCard() {
+        StellarPanel card = new StellarPanel(new BorderLayout());
+        card.setBorder(BorderFactory.createEmptyBorder(StellarTheme.SPACE_17, StellarTheme.SPACE_17,
+                StellarTheme.SPACE_17, StellarTheme.SPACE_17));
+
+        JPanel content = new JPanel();
+        content.setOpaque(false);
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+        content.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel zeroGKicker = StellarLabels.kicker("ZeroG mods connection");
+        zeroGKicker.setAlignmentX(Component.LEFT_ALIGNMENT);
+        content.add(zeroGKicker);
+        content.add(Box.createVerticalStrut(StellarTheme.SPACE_6));
+        JTextArea caption = new JTextArea("Only needed if you've forked this app and want it pointed at your "
+                + "own mod catalog and/or CurseForge proxy instead of ZeroG Network's.", 2, 90);
+        caption.setEditable(false);
+        caption.setFocusable(false);
+        caption.setOpaque(false);
+        caption.setLineWrap(true);
+        caption.setWrapStyleWord(true);
+        caption.setFont(StellarTheme.FONT_CAPTION);
+        caption.setForeground(StellarTheme.TEXT_SECONDARY);
+        caption.setAlignmentX(Component.LEFT_ALIGNMENT);
+        content.add(caption);
+        content.add(Box.createVerticalStrut(StellarTheme.SPACE_11));
+
+        JLabel catalogLabel = StellarLabels.body("Catalog URL");
+        catalogLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        content.add(catalogLabel);
+        content.add(Box.createVerticalStrut(StellarTheme.SPACE_6));
+        JTextField catalogField = themedField(settings.getZeroGCatalogUrl().isBlank()
+                ? ServerSettings.DEFAULT_ZEROG_CATALOG_URL : settings.getZeroGCatalogUrl());
+        catalogField.setAlignmentX(Component.LEFT_ALIGNMENT);
+        catalogField.setMaximumSize(new Dimension(Integer.MAX_VALUE, catalogField.getPreferredSize().height));
+        content.add(catalogField);
+        catalogField.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusLost(FocusEvent e) {
+                String value = catalogField.getText().trim();
+                if (!value.equals(settings.getZeroGCatalogUrl())) {
+                    settings.setZeroGCatalogUrl(value);
+                    persist("Catalog URL updated.");
+                }
+            }
+        });
+        content.add(Box.createVerticalStrut(StellarTheme.SPACE_11));
+
+        JLabel proxyLabel = StellarLabels.body("CurseForge proxy endpoint");
+        proxyLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        content.add(proxyLabel);
+        content.add(Box.createVerticalStrut(StellarTheme.SPACE_6));
+        JTextField proxyField = themedField(settings.getZeroGProxyBaseUrl().isBlank()
+                ? com.zerog.stellarserverforge.zerogmods.CurseForgeInstallService.DEFAULT_PROXY_BASE_URL
+                : settings.getZeroGProxyBaseUrl());
+        proxyField.setAlignmentX(Component.LEFT_ALIGNMENT);
+        proxyField.setMaximumSize(new Dimension(Integer.MAX_VALUE, proxyField.getPreferredSize().height));
+        content.add(proxyField);
+        proxyField.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusLost(FocusEvent e) {
+                String value = proxyField.getText().trim();
+                if (!value.equals(settings.getZeroGProxyBaseUrl())) {
+                    settings.setZeroGProxyBaseUrl(value);
+                    persist("Proxy endpoint updated.");
+                }
+            }
+        });
 
         card.add(content, BorderLayout.NORTH);
         return card;

@@ -22,11 +22,13 @@ import java.util.stream.StreamSupport;
 
 /**
  * Resolves and downloads a ZeroG Network mod hosted on CurseForge. By default this goes through
- * ZeroG's own proxy ({@code proxy/curseforge-proxy}), which holds the real CurseForge API key
- * server-side — so installing a CurseForge-sourced mod works with zero setup for anyone using the
- * app, without a shared secret ever shipping inside the distributed jar. Users who supply their
- * own personal API key (from console.curseforge.com) bypass the proxy and talk to CurseForge
- * directly with it instead — useful if the proxy is ever unreachable.
+ * ZeroG's own hosted proxy ({@link #DEFAULT_PROXY_BASE_URL}, backed by {@code proxy-php/}), which
+ * holds the real CurseForge API key server-side — so installing a CurseForge-sourced mod works
+ * with zero setup for anyone using the app, without a shared secret ever shipping inside the
+ * distributed jar or being asked of the user. A fork of this app that runs its own proxy just
+ * changes the endpoint (Settings → ZeroG mods connection endpoint) rather than needing a personal
+ * API key. A personal key is still accepted as a secondary override for anyone who wants to bypass
+ * either proxy and talk to CurseForge directly.
  * <p>
  * Either way, usage is self-throttled to {@link #MAX_CALLS_PER_WINDOW} calls per rolling
  * {@link #WINDOW}, independent of whatever limits CurseForge or the proxy itself enforce, so a bug
@@ -37,11 +39,9 @@ public class CurseForgeInstallService {
     private static final int MAX_CALLS_PER_WINDOW = 50;
     private static final Duration WINDOW = Duration.ofHours(1);
 
-    /** ZeroG Network's proxy that holds the real CurseForge API key server-side (see
-     * proxy-php/README.md — a small PHP script hosted on shared cPanel hosting). Update once
-     * deployed; a Cloudflare Workers alternative also exists in proxy/curseforge-proxy/ if that
-     * ever becomes the preferred host instead. */
-    private static final String DEFAULT_PROXY_BASE_URL = "https://sfs.zerognetwork.co.za";
+    /** ZeroG Network's own hosted proxy (see proxy-php/README.md — a small PHP script on shared
+     * cPanel hosting). Used whenever settings don't specify a different endpoint. */
+    public static final String DEFAULT_PROXY_BASE_URL = "https://sfs.zerognetwork.co.za";
 
     private final HttpFetcher http = new HttpFetcher();
     private final ObjectMapper mapper = new ObjectMapper();
@@ -51,9 +51,13 @@ public class CurseForgeInstallService {
         this.rateLimiter = new RateLimiter(cacheDir.resolve("curseforge-api-usage.txt"), MAX_CALLS_PER_WINDOW, WINDOW);
     }
 
-    /** @param personalApiKey optional — when blank, requests go through ZeroG's proxy instead of directly to CurseForge. */
-    public Path install(ZeroGModEntry entry, ModLoader loader, McVersion mc, Path modsDir, String personalApiKey)
-            throws IOException, InterruptedException {
+    /**
+     * @param personalApiKey optional — when blank, requests go through the proxy instead of directly to CurseForge.
+     * @param proxyBaseUrl   optional — when blank, falls back to {@link #DEFAULT_PROXY_BASE_URL}. Lets a fork point
+     *                       at its own deployed proxy without needing a personal key.
+     */
+    public Path install(ZeroGModEntry entry, ModLoader loader, McVersion mc, Path modsDir, String personalApiKey,
+                         String proxyBaseUrl) throws IOException, InterruptedException {
         rateLimiter.checkAndRecord();
 
         String query = "gameVersion=" + urlEncode(mc.raw()) + "&modLoaderType=" + curseForgeLoaderType(loader) + "&pageSize=50";
@@ -62,7 +66,8 @@ public class CurseForgeInstallService {
             String url = "https://api.curseforge.com/v1/mods/" + urlEncode(entry.getProjectId()) + "/files?" + query;
             json = http.getString(url, Map.of("x-api-key", personalApiKey, "Accept", "application/json"));
         } else {
-            String url = DEFAULT_PROXY_BASE_URL + "/curseforge.php?modId=" + urlEncode(entry.getProjectId()) + "&" + query;
+            String base = (proxyBaseUrl == null || proxyBaseUrl.isBlank()) ? DEFAULT_PROXY_BASE_URL : proxyBaseUrl;
+            String url = base + "/curseforge.php?modId=" + urlEncode(entry.getProjectId()) + "&" + query;
             json = http.getString(url);
         }
 

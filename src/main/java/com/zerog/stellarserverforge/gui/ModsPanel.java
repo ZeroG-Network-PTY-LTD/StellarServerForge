@@ -60,7 +60,9 @@ public class ModsPanel extends JPanel {
         JPanel top = new JPanel();
         top.setOpaque(false);
         top.setLayout(new BoxLayout(top, BoxLayout.Y_AXIS));
-        top.add(StellarLabels.kicker("Client-only mod scanner"));
+        JLabel scannerKicker = StellarLabels.kicker("Client-only mod scanner");
+        scannerKicker.setAlignmentX(Component.LEFT_ALIGNMENT);
+        top.add(scannerKicker);
         top.add(Box.createVerticalStrut(StellarTheme.SPACE_6));
         JTextArea caption = new JTextArea("Flags mods that only belong on the client, so they can be moved out "
                 + "of a dedicated server's mods folder without breaking anything else that depends on them.",
@@ -79,6 +81,7 @@ public class ModsPanel extends JPanel {
 
         JPanel actionsRow = new JPanel(new FlowLayout(FlowLayout.LEFT, StellarTheme.SPACE_8, 0));
         actionsRow.setOpaque(false);
+        actionsRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         StellarButton scanClientButton = new StellarButton("Scan for client-only mods", StellarButton.Variant.PRIMARY);
         StellarButton mcreatorButton = new StellarButton("Scan for MCreator mods", StellarButton.Variant.SECONDARY);
         StellarButton listButton = new StellarButton("List mods folder", StellarButton.Variant.SECONDARY);

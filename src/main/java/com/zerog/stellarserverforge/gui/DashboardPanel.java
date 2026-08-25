@@ -34,6 +34,7 @@ public class DashboardPanel extends JPanel {
     private final Runnable onOpenSettingsScreen;
     private final Runnable onOpenUtilitiesScreen;
     private final Runnable onOpenModsScreen;
+    private final Runnable onOpenZeroGModsScreen;
 
     private ServerSettings settings;
     private final ServerProcessRunner runner;
@@ -62,12 +63,13 @@ public class DashboardPanel extends JPanel {
     private int restartCount;
 
     public DashboardPanel(AppContext ctx, ServerSettings settings, Runnable onOpenSettingsScreen,
-                           Runnable onOpenUtilitiesScreen, Runnable onOpenModsScreen) {
+                           Runnable onOpenUtilitiesScreen, Runnable onOpenModsScreen, Runnable onOpenZeroGModsScreen) {
         this.ctx = ctx;
         this.settings = settings;
         this.onOpenSettingsScreen = onOpenSettingsScreen;
         this.onOpenUtilitiesScreen = onOpenUtilitiesScreen;
         this.onOpenModsScreen = onOpenModsScreen;
+        this.onOpenZeroGModsScreen = onOpenZeroGModsScreen;
         this.runner = new ServerProcessRunner(ctx.serverDir);
 
         setOpaque(false);
@@ -235,7 +237,7 @@ public class DashboardPanel extends JPanel {
         modsButton.addActionListener(e -> onOpenModsScreen.run());
         utilitiesButton.addActionListener(e -> onOpenUtilitiesScreen.run());
         curseForgeButton.addActionListener(e -> onOpenCurseForgeImport());
-        zeroGModsButton.addActionListener(e -> onOpenZeroGMods());
+        zeroGModsButton.addActionListener(e -> onOpenZeroGModsScreen.run());
         return card;
     }
 
@@ -244,9 +246,6 @@ public class DashboardPanel extends JPanel {
         return window instanceof Frame ? (Frame) window : null;
     }
 
-    private void onOpenZeroGMods() {
-        new ZeroGModsDialog(ownerFrame(), ctx, settings).setVisible(true);
-    }
 
     private void onOpenCurseForgeImport() {
         new CurseForgeImportDialog(ownerFrame(), ctx, imported -> {

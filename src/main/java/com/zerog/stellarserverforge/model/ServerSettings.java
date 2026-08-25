@@ -29,8 +29,17 @@ public class ServerSettings {
     private int portUdp = 24454;
     private String protocol = "TCP";
     private boolean usePortForwarded = false;
+    /** The ZeroG Network org's own catalog, so the ZeroG Mods screen works with zero setup. A fork
+     * pointing at a different org's catalog can change this in the ZeroG Mods screen. */
+    public static final String DEFAULT_ZEROG_CATALOG_URL =
+            "https://raw.githubusercontent.com/ZeroG-Network-PTY-LTD/StellarServerForge/main/zerog-mods-catalog.json";
+
     private JavaOverrideMode javaOverrideMode = JavaOverrideMode.AUTOMATIC;
-    private String zeroGCatalogUrl = "";
+    private String zeroGCatalogUrl = DEFAULT_ZEROG_CATALOG_URL;
+    /** Base URL of the CurseForge proxy to use (see CurseForgeInstallService). Blank means use
+     * that class's own default (ZeroG Network's hosted proxy). A fork running its own proxy
+     * changes this instead of needing a personal CurseForge API key. */
+    private String zeroGProxyBaseUrl = "";
 
     /** Stored encrypted (AES-256-GCM, key held outside the repo/server dir — see SecretStore); the
      * in-memory value here is always plaintext, only the on-disk settings.json copy is ciphertext. */
@@ -146,6 +155,15 @@ public class ServerSettings {
 
     public void setZeroGCatalogUrl(String zeroGCatalogUrl) {
         this.zeroGCatalogUrl = zeroGCatalogUrl;
+    }
+
+    /** Base URL of the CurseForge proxy to use — blank means use the built-in default. */
+    public String getZeroGProxyBaseUrl() {
+        return zeroGProxyBaseUrl;
+    }
+
+    public void setZeroGProxyBaseUrl(String zeroGProxyBaseUrl) {
+        this.zeroGProxyBaseUrl = zeroGProxyBaseUrl;
     }
 
     /** Personal API key from console.curseforge.com, needed to auto-download CurseForge-sourced mods. */

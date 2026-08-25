@@ -18,6 +18,7 @@ public class MainFrame extends JFrame {
     private static final String CARD_SETTINGS = "settings";
     private static final String CARD_UTILITIES = "utilities";
     private static final String CARD_MODS = "mods";
+    private static final String CARD_ZEROG_MODS = "zerogMods";
 
     private final AppContext ctx;
     private final CardLayout cardLayout = new CardLayout();
@@ -28,6 +29,7 @@ public class MainFrame extends JFrame {
     private SettingsPanel settingsPanel;
     private UtilitiesPanel utilitiesPanel;
     private ModsPanel modsPanel;
+    private ZeroGModsPanel zeroGModsPanel;
     private ServerSettings settings;
 
     public MainFrame() {
@@ -94,7 +96,8 @@ public class MainFrame extends JFrame {
     private void showDashboard(ServerSettings settings) {
         this.settings = settings;
         if (dashboardPanel == null) {
-            dashboardPanel = new DashboardPanel(ctx, settings, this::showSettings, this::showUtilities, this::showMods);
+            dashboardPanel = new DashboardPanel(ctx, settings, this::showSettings, this::showUtilities,
+                    this::showMods, this::showZeroGMods);
             cards.add(dashboardPanel, CARD_DASHBOARD);
         } else {
             dashboardPanel.updateSettings(settings);
@@ -136,6 +139,17 @@ public class MainFrame extends JFrame {
         modsPanel = new ModsPanel(ctx, settings, this::backToDashboard);
         cards.add(modsPanel, CARD_MODS);
         cardLayout.show(cards, CARD_MODS);
+    }
+
+    /** Reached from the dashboard's "ZeroG Network mods" toolbar button — an in-window screen
+     * instead of a separate modal dialog. */
+    private void showZeroGMods() {
+        if (zeroGModsPanel != null) {
+            cards.remove(zeroGModsPanel);
+        }
+        zeroGModsPanel = new ZeroGModsPanel(ctx, settings, this::backToDashboard);
+        cards.add(zeroGModsPanel, CARD_ZEROG_MODS);
+        cardLayout.show(cards, CARD_ZEROG_MODS);
     }
 
     private void backToDashboard() {

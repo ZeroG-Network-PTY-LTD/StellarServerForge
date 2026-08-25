@@ -2,6 +2,7 @@ package com.zerog.stellarserverforge.gui;
 
 import com.zerog.stellarserverforge.gui.theme.StellarButton;
 import com.zerog.stellarserverforge.gui.theme.StellarLabels;
+import com.zerog.stellarserverforge.gui.theme.StellarPanel;
 import com.zerog.stellarserverforge.gui.theme.StellarTheme;
 import com.zerog.stellarserverforge.model.McVersion;
 import com.zerog.stellarserverforge.model.ModLoader;
@@ -13,99 +14,112 @@ import java.awt.*;
 import java.awt.Desktop;
 import java.io.IOException;
 import java.net.URI;
-import java.util.List;
 
 /**
  * Browses the externally-maintained catalog of mods the ZeroG Network org has made, and installs
- * the selected one from wherever it's actually hosted — Modrinth (public API) or CurseForge
- * (requires the user's own API key). The catalog itself is just data the user points the app at;
- * this app never scans GitHub to "discover" mods on its own.
+ * the selected one from wherever it's actually hosted — Modrinth (public API) or CurseForge (via
+ * ZeroG's own hosted proxy — no API key needed from the user; that's on a stable connection now).
+ * The catalog itself is just data the app is pointed at; it never scans GitHub to "discover" mods
+ * on its own. A real in-window screen (reached from the dashboard) rather than a modal dialog.
+ * <p>
+ * A fork of this app that wants to run its own catalog/proxy changes both endpoints from the
+ * Settings screen — this screen no longer asks for a personal API key at all.
  */
-public class ZeroGModsDialog extends JDialog {
+public class ZeroGModsPanel extends JPanel {
 
     private final AppContext ctx;
     private final ServerSettings settings;
 
-    private final JTextField catalogUrlField = themedField(40);
-    private final JTextField apiKeyField = themedField(28);
     private final DefaultListModel<ZeroGModEntry> listModel = new DefaultListModel<>();
     private final JList<ZeroGModEntry> list = new JList<>(listModel);
     private final JTextArea logArea = new JTextArea(8, 60);
 
-    private final StellarButton reloadButton = new StellarButton("Reload catalog", StellarButton.Variant.SECONDARY);
     private final StellarButton installButton = new StellarButton("Install selected", StellarButton.Variant.PRIMARY);
     private final StellarButton openPageButton = new StellarButton("Open page", StellarButton.Variant.SECONDARY);
+    private final StellarButton reloadButton = new StellarButton("Reload catalog", StellarButton.Variant.SECONDARY);
 
-    public ZeroGModsDialog(Frame owner, AppContext ctx, ServerSettings settings) {
-        super(owner, "ZeroG Network mods", true);
+    public ZeroGModsPanel(AppContext ctx, ServerSettings settings, Runnable onBack) {
         this.ctx = ctx;
         this.settings = settings;
 
-        getContentPane().setBackground(StellarTheme.BG);
-        setLayout(new BorderLayout(StellarTheme.SPACE_11, StellarTheme.SPACE_11));
-        ((JComponent) getContentPane()).setBorder(BorderFactory.createEmptyBorder(
-                StellarTheme.SPACE_17, StellarTheme.SPACE_17, StellarTheme.SPACE_17, StellarTheme.SPACE_17));
+        setOpaque(false);
+        setLayout(new BorderLayout(0, StellarTheme.SPACE_17));
+        setBorder(BorderFactory.createEmptyBorder(StellarTheme.SPACE_22, StellarTheme.SPACE_22,
+                StellarTheme.SPACE_22, StellarTheme.SPACE_22));
 
-        JPanel north = new JPanel();
-        north.setOpaque(false);
-        north.setLayout(new BoxLayout(north, BoxLayout.Y_AXIS));
-        north.add(StellarLabels.heading("ZeroG Network mods"));
-        north.add(Box.createVerticalStrut(StellarTheme.SPACE_6));
-        north.add(StellarLabels.muted("Suggests mods the ZeroG Network org has made, installed from wherever they're actually hosted."));
-        north.add(Box.createVerticalStrut(StellarTheme.SPACE_11));
+        JPanel headerRow = new JPanel(new BorderLayout(StellarTheme.SPACE_11, 0));
+        headerRow.setOpaque(false);
+        StellarButton back = new StellarButton("Back", StellarButton.Variant.GHOST);
+        back.addActionListener(e -> onBack.run());
+        headerRow.add(back, BorderLayout.WEST);
+        headerRow.add(StellarLabels.title("ZeroG Network mods"), BorderLayout.CENTER);
+        add(headerRow, BorderLayout.NORTH);
 
-        catalogUrlField.setText(settings.getZeroGCatalogUrl());
-        JPanel catalogRow = new JPanel(new FlowLayout(FlowLayout.LEFT, StellarTheme.SPACE_8, 0));
-        catalogRow.setOpaque(false);
-        catalogRow.add(StellarLabels.body("Catalog URL:"));
-        catalogRow.add(catalogUrlField);
-        catalogRow.add(reloadButton);
-        north.add(catalogRow);
+        StellarPanel body = new StellarPanel(new BorderLayout(0, StellarTheme.SPACE_11));
+        body.setBorder(BorderFactory.createEmptyBorder(StellarTheme.SPACE_17, StellarTheme.SPACE_17,
+                StellarTheme.SPACE_17, StellarTheme.SPACE_17));
 
-        apiKeyField.setText(settings.getCurseForgeApiKey());
-        JPanel keyRow = new JPanel(new FlowLayout(FlowLayout.LEFT, StellarTheme.SPACE_8, 0));
-        keyRow.setOpaque(false);
-        keyRow.add(StellarLabels.body("CurseForge API key (optional):"));
-        keyRow.add(apiKeyField);
-        north.add(keyRow);
-        north.add(StellarLabels.muted("CurseForge-sourced mods install automatically via ZeroG's own proxy — "
-                + "no key needed. Only add your own (from console.curseforge.com) to bypass the proxy."));
+        JPanel top = new JPanel();
+        top.setOpaque(false);
+        top.setLayout(new BoxLayout(top, BoxLayout.Y_AXIS));
+        top.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        add(north, BorderLayout.NORTH);
+        JLabel kicker = StellarLabels.kicker("Suggested mods");
+        kicker.setAlignmentX(Component.LEFT_ALIGNMENT);
+        top.add(kicker);
+        top.add(Box.createVerticalStrut(StellarTheme.SPACE_6));
+
+        JTextArea caption = new JTextArea("Mods the ZeroG Network org has made, installed from wherever they're "
+                + "actually hosted — Modrinth needs no key at all, and CurseForge goes through ZeroG's own "
+                + "hosted proxy automatically.", 2, 80);
+        caption.setEditable(false);
+        caption.setFocusable(false);
+        caption.setOpaque(false);
+        caption.setLineWrap(true);
+        caption.setWrapStyleWord(true);
+        caption.setFont(StellarTheme.FONT_CAPTION);
+        caption.setForeground(StellarTheme.TEXT_SECONDARY);
+        caption.setAlignmentX(Component.LEFT_ALIGNMENT);
+        top.add(caption);
+        top.add(Box.createVerticalStrut(StellarTheme.SPACE_11));
+        reloadButton.setAlignmentX(Component.LEFT_ALIGNMENT);
+        top.add(reloadButton);
+        body.add(top, BorderLayout.NORTH);
 
         list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         list.setBackground(StellarTheme.SURFACE);
         list.setForeground(StellarTheme.TEXT_PRIMARY);
         list.setCellRenderer(new EntryRenderer());
-        add(new JScrollPane(list), BorderLayout.CENTER);
+        JScrollPane listScroll = new JScrollPane(list);
+        listScroll.setBorder(BorderFactory.createLineBorder(StellarTheme.NEUTRAL_800));
 
-        JPanel south = new JPanel(new BorderLayout(0, StellarTheme.SPACE_8));
-        south.setOpaque(false);
+        JPanel center = new JPanel(new BorderLayout(0, StellarTheme.SPACE_8));
+        center.setOpaque(false);
+        center.add(listScroll, BorderLayout.CENTER);
+
+        JPanel actionsRow = new JPanel(new FlowLayout(FlowLayout.LEFT, StellarTheme.SPACE_8, 0));
+        actionsRow.setOpaque(false);
+        actionsRow.add(installButton);
+        actionsRow.add(openPageButton);
+        center.add(actionsRow, BorderLayout.SOUTH);
+        body.add(center, BorderLayout.CENTER);
 
         logArea.setEditable(false);
         logArea.setBackground(StellarTheme.CONSOLE_BG);
         logArea.setForeground(StellarTheme.NEUTRAL_100);
         logArea.setFont(StellarTheme.FONT_MONO);
-        south.add(new JScrollPane(logArea), BorderLayout.CENTER);
+        logArea.setBorder(BorderFactory.createEmptyBorder(StellarTheme.SPACE_11, StellarTheme.SPACE_11,
+                StellarTheme.SPACE_11, StellarTheme.SPACE_11));
+        JScrollPane logScroll = new JScrollPane(logArea);
+        logScroll.setBorder(BorderFactory.createEmptyBorder());
+        logScroll.setPreferredSize(new Dimension(100, 120));
+        body.add(logScroll, BorderLayout.SOUTH);
 
-        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, StellarTheme.SPACE_8, 0));
-        buttons.setOpaque(false);
-        buttons.add(installButton);
-        buttons.add(openPageButton);
-        StellarButton closeButton = new StellarButton("Close", StellarButton.Variant.GHOST);
-        closeButton.addActionListener(e -> dispose());
-        buttons.add(closeButton);
-        south.add(buttons, BorderLayout.SOUTH);
+        add(body, BorderLayout.CENTER);
 
-        add(south, BorderLayout.SOUTH);
-
-        reloadButton.addActionListener(e -> reload(true));
+        reloadButton.addActionListener(e -> reload());
         installButton.addActionListener(e -> install());
         openPageButton.addActionListener(e -> openPage());
-
-        setSize(720, 560);
-        setMinimumSize(new Dimension(560, 420));
-        setLocationRelativeTo(owner);
 
         if (settings.getModLoader() == ModLoader.VANILLA) {
             log("This server is Vanilla — mods can't be installed until a modloader is set up.");
@@ -115,40 +129,36 @@ public class ZeroGModsDialog extends JDialog {
         loadInitial();
     }
 
-    private static JTextField themedField(int columns) {
-        JTextField field = new JTextField(columns);
-        field.setBackground(StellarTheme.FIELD_BG);
-        field.setForeground(StellarTheme.TEXT_PRIMARY);
-        field.setCaretColor(StellarTheme.ACCENT);
-        field.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(StellarTheme.NEUTRAL_800),
-                BorderFactory.createEmptyBorder(6, 10, 6, 10)));
-        field.setFont(StellarTheme.FONT_BODY);
-        return field;
-    }
-
     private void log(String message) {
         logArea.append(message + System.lineSeparator());
         logArea.setCaretPosition(logArea.getDocument().getLength());
     }
 
     private void loadInitial() {
-        if (!catalogUrlField.getText().isBlank()) {
-            reload(false);
+        String url = catalogUrl();
+        if (!url.isBlank()) {
+            reload();
         } else if (ctx.zeroGModCatalogService.hasCachedCopy()) {
             try {
                 applyResult(ctx.zeroGModCatalogService.loadCached());
-                log("Loaded the last cached copy of the catalog (no URL set yet).");
+                log("Loaded the last cached copy of the catalog.");
             } catch (IOException e) {
                 log("Could not read the cached catalog: " + e.getMessage());
             }
         } else {
-            log("Enter the raw GitHub URL to your mods catalog JSON and click Reload catalog.");
+            log("No catalog URL configured yet — set one from Settings.");
         }
     }
 
-    private void reload(boolean persist) {
-        String url = catalogUrlField.getText().trim();
+    /** Falls back to ZeroG Network's own catalog if settings.json predates this field or was
+     * cleared — the screen should never need manual setup for the default hosted flow. */
+    private String catalogUrl() {
+        String url = settings.getZeroGCatalogUrl();
+        return (url == null || url.isBlank()) ? ServerSettings.DEFAULT_ZEROG_CATALOG_URL : url;
+    }
+
+    private void reload() {
+        String url = catalogUrl();
         reloadButton.setEnabled(false);
         log("Fetching catalog from " + url + "...");
 
@@ -163,9 +173,6 @@ public class ZeroGModsDialog extends JDialog {
                 reloadButton.setEnabled(true);
                 try {
                     applyResult(get());
-                    if (persist) {
-                        persistFields();
-                    }
                 } catch (Exception ex) {
                     log("Failed to fetch catalog: " + rootMessage(ex));
                     if (ctx.zeroGModCatalogService.hasCachedCopy()) {
@@ -189,27 +196,12 @@ public class ZeroGModsDialog extends JDialog {
         }
     }
 
-    private void persistFields() {
-        settings.setZeroGCatalogUrl(catalogUrlField.getText().trim());
-        settings.setCurseForgeApiKey(apiKeyField.getText().trim());
-        try {
-            ctx.settingsService.save(settings);
-        } catch (IOException e) {
-            log("Could not save settings.json: " + e.getMessage());
-        } catch (RuntimeException e) {
-            // Covers SecretStore.encrypt() failing (e.g. a corrupted local encryption key file) —
-            // that's a real problem worth surfacing, but shouldn't crash uncaught on the EDT.
-            log("Could not save settings.json (encryption failed): " + e.getMessage());
-        }
-    }
-
     private void install() {
         ZeroGModEntry entry = list.getSelectedValue();
         if (entry == null) {
             log("Select a mod first.");
             return;
         }
-        persistFields();
         installButton.setEnabled(false);
         log("Installing " + entry.getName() + " from " + entry.getSource() + "...");
 
@@ -222,7 +214,7 @@ public class ZeroGModsDialog extends JDialog {
                 return switch (entry.getSource()) {
                     case MODRINTH -> ctx.modrinthInstallService.install(entry, loader, mc, modsDir);
                     case CURSEFORGE -> ctx.curseForgeInstallService.install(entry, loader, mc, modsDir,
-                            settings.getCurseForgeApiKey());
+                            settings.getCurseForgeApiKey(), settings.getZeroGProxyBaseUrl());
                 };
             }
 
