@@ -33,24 +33,23 @@ jobs:
           chmod +x ./gradlew
           ./gradlew shadowJar --no-daemon
 
-      - name: Package release zip
+      - name: Package release jar
         id: package
         run: |
           SHORT_SHA=$(git rev-parse --short HEAD)
           JAR_PATH=$(find build/libs -name "*-all.jar" | head -n1)
-          ZIP_NAME="StellarServerForge_v${SHORT_SHA}.zip"
+          JAR_NAME="StellarServerForge_v${SHORT_SHA}.jar"
 
           mkdir -p dist
-          cp "$JAR_PATH" "dist/"
-          (cd dist && zip -q "$ZIP_NAME" "$(basename "$JAR_PATH")")
+          cp "$JAR_PATH" "dist/${JAR_NAME}"
 
-          SIZE_BYTES=$(stat -c%s "dist/$ZIP_NAME")
+          SIZE_BYTES=$(stat -c%s "dist/${JAR_NAME}")
           SIZE_MB=$(awk "BEGIN { printf \"%.2f\", $SIZE_BYTES / 1048576 }")
 
           {
             echo "short_sha=$SHORT_SHA"
-            echo "zip_name=$ZIP_NAME"
-            echo "zip_path=dist/$ZIP_NAME"
+            echo "jar_name=$JAR_NAME"
+            echo "jar_path=dist/${JAR_NAME}"
             echo "size_mb=$SIZE_MB"
           } >> "$GITHUB_OUTPUT"
 
@@ -59,7 +58,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "build-${{ steps.package.outputs.short_sha }}" \
-            "${{ steps.package.outputs.zip_path }}" \
+            "${{ steps.package.outputs.jar_path }}" \
             --title "StellarServerForge ${{ steps.package.outputs.short_sha }}" \
             --notes "Automated build from commit ${{ steps.package.outputs.short_sha }} on main."
 
@@ -67,15 +66,15 @@ jobs:
         env:
           DISCORD_WEBHOOK_URL_2: ${{ secrets.DISCORD_WEBHOOK_URL_2 }}
           SHORT_SHA: ${{ steps.package.outputs.short_sha }}
-          ZIP_NAME: ${{ steps.package.outputs.zip_name }}
+          JAR_NAME: ${{ steps.package.outputs.jar_name }}
           SIZE_MB: ${{ steps.package.outputs.size_mb }}
         run: |
-          ASSET_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/build-${SHORT_SHA}/${ZIP_NAME}"
+          ASSET_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/build-${SHORT_SHA}/${JAR_NAME}"
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
           PAYLOAD=$(jq -n \
             --arg sha "$SHORT_SHA" \
-            --arg zip "$ZIP_NAME" \
+            --arg jar "$JAR_NAME" \
             --arg size "$SIZE_MB" \
             --arg url "$ASSET_URL" \
             --arg ts "$TIMESTAMP" \
@@ -87,7 +86,7 @@ jobs:
                   fields: [
                     { name: "Branch", value: "`main`", inline: true },
                     { name: "StellarServerForge", value: ("`" + $sha + "`"), inline: true },
-                    { name: $zip, value: ($size + " MB • [Download](" + $url + ")"), inline: false }
+                    { name: $jar, value: ($size + " MB • [Download](" + $url + ")"), inline: false }
                   ],
                   timestamp: $ts
                 }
