@@ -38,6 +38,8 @@ public class ZeroGModsPanel extends JPanel {
     private final StellarButton openPageButton = new StellarButton("Open page", StellarButton.Variant.SECONDARY);
     private final StellarButton reloadButton = new StellarButton("Reload catalog", StellarButton.Variant.SECONDARY);
 
+    private SwingWorker<java.nio.file.Path, Void> installWorker;
+
     public ZeroGModsPanel(AppContext ctx, ServerSettings settings, Runnable onBack) {
         this.ctx = ctx;
         this.settings = settings;
@@ -205,7 +207,7 @@ public class ZeroGModsPanel extends JPanel {
         installButton.setEnabled(false);
         log("Installing " + entry.getName() + " from " + entry.getSource() + "...");
 
-        new SwingWorker<java.nio.file.Path, Void>() {
+        installWorker = new SwingWorker<java.nio.file.Path, Void>() {
             @Override
             protected java.nio.file.Path doInBackground() throws Exception {
                 McVersion mc = McVersion.parse(settings.getMinecraftVersion());
@@ -220,6 +222,9 @@ public class ZeroGModsPanel extends JPanel {
 
             @Override
             protected void done() {
+                if (isCancelled()) {
+                    return;
+                }
                 installButton.setEnabled(true);
                 try {
                     java.nio.file.Path installed = get();
@@ -244,7 +249,17 @@ public class ZeroGModsPanel extends JPanel {
                     }
                 }
             }
-        }.execute();
+        };
+        installWorker.execute();
+    }
+
+    /** Called by {@link MainFrame} before this panel instance is discarded (navigating away and
+     * back re-creates it) so an in-flight install doesn't keep running against a detached panel
+     * and touch UI state nobody will ever see again. */
+    public void cancelPendingWork() {
+        if (installWorker != null && !installWorker.isDone()) {
+            installWorker.cancel(true);
+        }
     }
 
     private void openPage() {

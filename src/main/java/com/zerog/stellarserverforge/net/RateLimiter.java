@@ -71,7 +71,7 @@ public class RateLimiter {
                 timestamps.removeIf(t -> t.isBefore(cutoff));
 
                 if (timestamps.size() >= maxCalls) {
-                    Instant oldest = timestamps.get(0);
+                    Instant oldest = java.util.Collections.min(timestamps);
                     Duration wait = Duration.between(now, oldest.plus(window));
                     throw new RateLimitExceededException("Rate limit reached: " + maxCalls + " calls per "
                             + formatWindow(window) + ". Try again in " + formatWait(wait) + ".");

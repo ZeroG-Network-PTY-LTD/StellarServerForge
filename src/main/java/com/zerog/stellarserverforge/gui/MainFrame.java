@@ -145,6 +145,7 @@ public class MainFrame extends JFrame {
      * instead of a separate modal dialog. */
     private void showZeroGMods() {
         if (zeroGModsPanel != null) {
+            zeroGModsPanel.cancelPendingWork();
             cards.remove(zeroGModsPanel);
         }
         zeroGModsPanel = new ZeroGModsPanel(ctx, settings, this::backToDashboard);
