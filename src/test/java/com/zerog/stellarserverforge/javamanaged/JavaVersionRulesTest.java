@@ -44,9 +44,19 @@ class JavaVersionRulesTest {
     }
 
     @Test
-    void mc1_20_5DefaultsToSeventeen() {
-        var options = JavaVersionRules.resolve(McVersion.parse("1.20.5"));
+    void mc1_20_4DefaultsToSeventeen() {
+        var options = JavaVersionRules.resolve(McVersion.parse("1.20.4"));
         assertEquals(17, options.defaultVersion());
+        assertEquals(java.util.List.of(17, 21, 25), options.options());
+    }
+
+    @Test
+    void mc1_20_5DefaultsToTwentyOne() {
+        // 1.20.5 bumped Minecraft's own minimum Java requirement to 21 ahead of the usual
+        // major-version cadence (confirmed via Mojang's 1.20.5 release notes / Minecraft Wiki).
+        var options = JavaVersionRules.resolve(McVersion.parse("1.20.5"));
+        assertEquals(21, options.defaultVersion());
+        assertEquals(java.util.List.of(21, 25), options.options());
     }
 
     @Test

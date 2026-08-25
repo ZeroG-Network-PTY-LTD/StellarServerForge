@@ -6,8 +6,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * Deletes cached/downloaded modloader and utility files (spec §3.10) — never touches the user's
- * custom server files (mods, config, world saves, settings).
+ * Deletes the installed server jar/modloader libraries plus cached/downloaded installer, Java,
+ * and metadata files (spec §3.10) — forcing a full re-download/reinstall on the next launch. Never
+ * touches the user's custom server files (mods, config, world saves, settings), but this is a real
+ * "start over" operation, not a harmless cache clear — see the confirmation text in
+ * {@code UtilitiesDialog} for exactly what gets removed.
  */
 public class PurgeService {
 

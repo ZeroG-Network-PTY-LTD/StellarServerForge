@@ -37,7 +37,13 @@ public class ServerPackZipService {
     }
 
     public Path createZip(Path serverDir, List<String> entryNames, String zipBaseName) throws IOException {
-        Path zipPath = serverDir.resolve(zipBaseName + ".zip");
+        Path serverDirNormalized = serverDir.normalize();
+        Path zipPath = serverDirNormalized.resolve(sanitizeFileName(zipBaseName) + ".zip").normalize();
+        if (!zipPath.startsWith(serverDirNormalized)) {
+            // Defense in depth on top of the sanitizer below — a free-text UI field should never
+            // be able to make this write outside the server directory.
+            throw new IOException("Invalid file name.");
+        }
         try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(zipPath))) {
             String readme = "This is a StellarServerForge server pack.\n\n"
                     + "To run it: install StellarServerForge and point it at this folder, or run the "
@@ -59,6 +65,21 @@ public class ServerPackZipService {
             }
         }
         return zipPath;
+    }
+
+    /** Reduces a free-text UI field to a safe single filename component — no path separators, no
+     * {@code ..} traversal, no characters Windows/most filesystems reject in a filename. */
+    private static String sanitizeFileName(String name) {
+        if (name == null) {
+            return "server-pack";
+        }
+        String base = name.trim().replace('\\', '/');
+        int lastSlash = base.lastIndexOf('/');
+        if (lastSlash >= 0) {
+            base = base.substring(lastSlash + 1);
+        }
+        base = base.replaceAll("[\\\\/:*?\"<>|]", "_").replaceAll("^\\.+", "");
+        return base.isBlank() ? "server-pack" : base;
     }
 
     private void addDirectory(ZipOutputStream zos, Path root, Path dir) throws IOException {

@@ -38,10 +38,11 @@ public final class JavaVersionRules {
         if (major >= 18 && major <= 19) {
             return new JavaOptions(17, List.of(17, 21, 25));
         }
-        if (major == 20 && minor <= 5) {
+        if (major == 20 && minor <= 4) {
             return new JavaOptions(17, List.of(17, 21, 25));
         }
-        if (major == 20) { // minor >= 6
+        if (major == 20) { // minor >= 5 — 1.20.5 bumped the requirement to Java 21 ahead of the
+            // usual major-version cadence (confirmed via Mojang's 1.20.5 release notes).
             return new JavaOptions(21, List.of(21, 25));
         }
         if (major == 21) {

@@ -161,14 +161,18 @@ public class UtilitiesDialog extends JDialog {
 
     private JPanel buildPurgeTab() {
         JPanel panel = tabPanel();
-        panel.add(StellarLabels.muted("Deletes cached modloader installers, managed Java, and downloaded metadata "
+        panel.add(StellarLabels.muted("Deletes the installed server jar, modloader libraries, cached installers, "
+                + "managed Java, and downloaded metadata — forces a full re-download/reinstall on the next Launch "
                 + "(never touches mods/config/world saves/settings)."));
         StellarButton purgeButton = new StellarButton("Purge", StellarButton.Variant.DANGER);
         panel.add(purgeButton);
 
         purgeButton.addActionListener(e -> {
             int confirm = JOptionPane.showConfirmDialog(this,
-                    "This deletes cached modloader/Java downloads for this server. Continue?",
+                    "This deletes the installed server jar, modloader libraries, and cached "
+                            + "modloader/Java downloads for this server — the next Launch will need to "
+                            + "re-download and reinstall everything, which can take a while. "
+                            + "Mods/config/world saves/settings are not touched. Continue?",
                     "Confirm purge", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
             if (confirm != JOptionPane.YES_OPTION) {
                 return;
