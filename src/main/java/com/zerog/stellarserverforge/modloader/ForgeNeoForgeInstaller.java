@@ -115,17 +115,26 @@ public class ForgeNeoForgeInstaller {
 
     private void downloadAndVerify(String installerUrl, Path destination) throws IOException, InterruptedException {
         http.downloadToFile(installerUrl, destination);
+        String sha256;
         try {
-            String sha256 = http.getString(installerUrl + ".sha256").trim();
-            if (!ChecksumUtil.matches(destination, sha256, "SHA-256")) {
-                Files.deleteIfExists(destination);
-                throw new IOException("Installer checksum verification failed for " + installerUrl);
+            sha256 = http.getString(installerUrl + ".sha256").trim();
+        } catch (com.zerog.stellarserverforge.net.HttpStatusException e) {
+            if (e.isNotFound()) {
+                // No .sha256 sidecar published for this artifact — proceed without verification.
+                return;
             }
+            // A real (non-404) HTTP failure fetching the checksum — don't silently run an
+            // unverified installer jar over a transient server/network condition.
+            Files.deleteIfExists(destination);
+            throw e;
         } catch (IOException e) {
-            if (!Files.exists(destination)) {
-                throw e;
-            }
-            // No .sha256 sidecar published for this artifact — proceed without verification.
+            // Any other network failure (timeout, connection reset, etc.) — same reasoning.
+            Files.deleteIfExists(destination);
+            throw e;
+        }
+        if (!ChecksumUtil.matches(destination, sha256, "SHA-256")) {
+            Files.deleteIfExists(destination);
+            throw new IOException("Installer checksum verification failed for " + installerUrl);
         }
     }
 

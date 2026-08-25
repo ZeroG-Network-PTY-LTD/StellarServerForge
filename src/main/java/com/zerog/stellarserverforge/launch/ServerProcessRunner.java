@@ -55,7 +55,14 @@ public class ServerProcessRunner {
                     new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = br.readLine()) != null) {
-                    onOutputLine.accept(line);
+                    try {
+                        onOutputLine.accept(line);
+                    } catch (RuntimeException callbackFailure) {
+                        // Never let a callback failure kill this thread — if it did, the pipe would
+                        // stop being drained, and the child process could eventually block trying
+                        // to write further output once the OS pipe buffer fills, hanging silently
+                        // with no indication anything's wrong. Keep reading regardless.
+                    }
                 }
             } catch (IOException ignored) {
                 // Stream closed because the process ended.

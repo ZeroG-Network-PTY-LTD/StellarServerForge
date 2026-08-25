@@ -1,10 +1,13 @@
 package com.zerog.stellarserverforge.zerogmods;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 /**
  * One entry in the externally-supplied catalog of mods the ZeroG Network org has made. The
  * catalog itself is just a JSON array of these, hosted wherever the user maintains it (e.g. a
  * raw GitHub URL into their org's repo) — this app never scans GitHub itself to discover mods.
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ZeroGModEntry {
 
     /** Where the actual installable file lives — ZeroG Network only authors the mod, it doesn't host files. */

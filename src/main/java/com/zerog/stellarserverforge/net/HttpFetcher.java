@@ -30,7 +30,7 @@ public class HttpFetcher {
         headers.forEach(builder::header);
         HttpResponse<String> response = client.send(builder.build(), HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() / 100 != 2) {
-            throw new IOException("HTTP " + response.statusCode() + " fetching " + url);
+            throw new HttpStatusException(response.statusCode(), url);
         }
         return response.body();
     }
@@ -51,7 +51,7 @@ public class HttpFetcher {
             headers.forEach(builder::header);
             HttpResponse<Path> response = client.send(builder.build(), HttpResponse.BodyHandlers.ofFile(tempFile));
             if (response.statusCode() / 100 != 2) {
-                throw new IOException("HTTP " + response.statusCode() + " downloading " + url);
+                throw new HttpStatusException(response.statusCode(), url);
             }
             Files.move(tempFile, destination, StandardCopyOption.REPLACE_EXISTING);
         } finally {

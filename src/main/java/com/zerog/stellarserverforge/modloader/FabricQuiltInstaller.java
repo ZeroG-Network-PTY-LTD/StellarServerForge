@@ -134,17 +134,25 @@ public class FabricQuiltInstaller {
 
     private void downloadBestEffortVerified(String url, Path destination) throws IOException, InterruptedException {
         http.downloadToFile(url, destination);
+        String sha1;
         try {
-            String sha1 = http.getString(url + ".sha1").trim();
-            if (!ChecksumUtil.matches(destination, sha1, "SHA-1")) {
-                Files.deleteIfExists(destination);
-                throw new IOException("Installer checksum verification failed for " + url);
+            sha1 = http.getString(url + ".sha1").trim();
+        } catch (com.zerog.stellarserverforge.net.HttpStatusException e) {
+            if (e.isNotFound()) {
+                // No .sha1 sidecar published — proceed without verification.
+                return;
             }
+            Files.deleteIfExists(destination);
+            throw e;
         } catch (IOException e) {
-            if (!Files.exists(destination)) {
-                throw e;
-            }
-            // No .sha1 sidecar published — proceed without verification.
+            // Any other network failure (timeout, connection reset, etc.) fetching the checksum —
+            // don't silently run an unverified installer jar over a transient condition.
+            Files.deleteIfExists(destination);
+            throw e;
+        }
+        if (!ChecksumUtil.matches(destination, sha1, "SHA-1")) {
+            Files.deleteIfExists(destination);
+            throw new IOException("Installer checksum verification failed for " + url);
         }
     }
 

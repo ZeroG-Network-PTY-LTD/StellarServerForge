@@ -118,6 +118,19 @@ public class CurseForgeImportDialog extends JDialog {
         try {
             CurseForgeImportService.ParsedProfile parsed = ctx.curseForgeImportService.parseProfile(selected.path());
 
+            // Validate everything BEFORE the destructive step below (importInto replaces existing
+            // mods/config/etc.) — a profile with an unrecognized modloader name or an unparseable
+            // Minecraft version must fail here, not after files have already been overwritten.
+            ModLoader loader;
+            McVersion mc;
+            try {
+                loader = ModLoader.valueOf(parsed.modLoaderName().toUpperCase());
+                mc = McVersion.parse(parsed.minecraftVersion());
+            } catch (IllegalArgumentException e) {
+                statusLabel.setText("Unrecognized modloader type or Minecraft version in this profile — import cancelled.");
+                return;
+            }
+
             int confirm = JOptionPane.showConfirmDialog(this,
                     "Import \"" + parsed.displayName() + "\" (" + parsed.minecraftVersion() + ", "
                             + parsed.modLoaderName() + " " + parsed.modLoaderVersion() + ") into this server folder? "
@@ -131,18 +144,14 @@ public class CurseForgeImportDialog extends JDialog {
 
             ServerSettings settings = new ServerSettings();
             settings.setMinecraftVersion(parsed.minecraftVersion());
-            ModLoader loader = ModLoader.valueOf(parsed.modLoaderName().toUpperCase());
             settings.setModLoader(loader);
             settings.setModLoaderVersion(parsed.modLoaderVersion());
-            McVersion mc = McVersion.parse(parsed.minecraftVersion());
             settings.setJavaVersion(JavaVersionRules.resolve(mc).defaultVersion());
             settings.setJavaOverrideMode(JavaOverrideMode.AUTOMATIC);
 
             onImported.accept(settings);
             statusLabel.setText("Imported successfully.");
             dispose();
-        } catch (IllegalArgumentException e) {
-            statusLabel.setText("Unrecognized modloader type in this profile — import cancelled.");
         } catch (IOException e) {
             statusLabel.setText("Import failed: " + e.getMessage());
         }

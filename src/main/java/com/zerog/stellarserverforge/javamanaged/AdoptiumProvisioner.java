@@ -67,9 +67,16 @@ public class AdoptiumProvisioner {
         Path zipPath = javaCacheDir.resolve(release.releaseName() + ".zip");
         http.downloadToFile(release.downloadUrl(), zipPath);
 
-        if (release.sha256() != null && !ChecksumUtil.matches(zipPath, release.sha256(), "SHA-256")) {
-            Files.deleteIfExists(zipPath);
-            throw new IOException("Adoptium download for Java " + majorVersion + " failed checksum verification");
+        if (release.sha256() != null) {
+            if (!ChecksumUtil.matches(zipPath, release.sha256(), "SHA-256")) {
+                Files.deleteIfExists(zipPath);
+                throw new IOException("Adoptium download for Java " + majorVersion + " failed checksum verification");
+            }
+        } else {
+            // Adoptium's API omitted a checksum for this specific package — proceed, but make sure
+            // this is visible somewhere rather than silently running an unverified JDK/JRE archive.
+            System.err.println("WARNING: Adoptium release " + release.releaseName()
+                    + " had no published checksum — installed without verification.");
         }
 
         Path extractedRoot = extractZip(zipPath, javaCacheDir);
