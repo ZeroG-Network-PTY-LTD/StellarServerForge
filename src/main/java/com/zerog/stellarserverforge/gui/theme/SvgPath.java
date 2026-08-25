@@ -61,7 +61,8 @@ final class SvgPath {
                     tokens.add(m.group());
                     i = m.end();
                 } else {
-                    i++;
+                    throw new IllegalArgumentException("Unrecognized character '" + c + "' at offset " + i
+                            + " in SVG path data — refusing to silently drop it: \"" + d + "\"");
                 }
             }
         }
@@ -82,7 +83,8 @@ final class SvgPath {
             case 'S', 'Q' -> 4;
             case 'A' -> 7;
             case 'Z' -> 0;
-            default -> 0;
+            default -> throw new IllegalArgumentException("Unsupported SVG path command '" + command
+                    + "' — refusing to silently drop its " + n.length + " argument(s) rather than render a subtly-wrong shape.");
         };
 
         if (cmd == 'Z') {
@@ -93,8 +95,9 @@ final class SvgPath {
             return;
         }
 
-        if (argCount == 0) {
-            return;
+        if (n.length % argCount != 0) {
+            throw new IllegalArgumentException("SVG path command '" + command + "' expects a multiple of "
+                    + argCount + " arguments, got " + n.length + " — refusing to silently drop the remainder.");
         }
 
         for (int off = 0; off + argCount <= n.length; off += argCount) {

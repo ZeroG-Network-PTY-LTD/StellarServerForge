@@ -20,10 +20,14 @@ there — the two are independent; only deploy the one you're using, and point t
    at all. If your cPanel host offers "Setup Node.js/PHP App" environment variables, or you can add
    `SetEnv CF_API_KEY "..."` to the Apache vhost config (not `.htaccess` — that would put it back in
    a file), use this.
-2. **A config file OUTSIDE the web root**, at `curseforge-proxy-secret/config.php`, two directories
-   above wherever `curseforge.php` lives. On a typical cPanel layout that's outside `public_html`
-   entirely — a path Apache/LiteSpeed will never serve over HTTP no matter what, regardless of
-   `.htaccess`. **This is the recommended option** if environment variables aren't available.
+2. **A config file OUTSIDE the web root**, at `curseforge-proxy-secret/config.php`. cPanel hosts
+   differ in whether a subdomain's document root nests inside `public_html` or sits as its sibling,
+   so the script checks 1, 2, and 3 directories above wherever `curseforge.php` lives and uses
+   whichever one it finds first — you don't need to know which layout your host uses, just put the
+   folder one level above wherever `curseforge.php` ended up (see step 3 below) and it'll be found.
+   Either way it's outside `public_html` entirely — a path Apache/LiteSpeed will never serve over
+   HTTP no matter what, regardless of `.htaccess`. **This is the recommended option** if environment
+   variables aren't available.
 3. **`config.php` in the same folder as `curseforge.php`** — last resort. Still blocked by
    `.htaccess`, but that's one server misconfiguration away from being servable. The script logs a
    warning (to your PHP error log) every time this fallback is used, as a nudge to move it.
@@ -80,7 +84,13 @@ type hints — everything else is compatible.
   instead, out of any HTTP response.
 - **Per-IP rate limiting** (120 requests/hour/IP by default, in `curseforge.php`) — a real backstop
   independent of who or what is calling the endpoint, on top of the app's own 50/hour client-side
-  self-throttle. Limits blast radius even if the URL is ever discovered/scraped.
+  self-throttle. Limits blast radius even if the URL is ever discovered/scraped. **Known
+  limitation**: this trusts `REMOTE_ADDR` only (deliberately — trusting `X-Forwarded-For` would let
+  any caller spoof their own IP and bypass the limit entirely). If `sfs.zerognetwork.co.za` ever
+  gets put behind a CDN/reverse proxy (e.g. moved onto Cloudflare's proxied DNS), every visitor
+  would appear as the CDN's edge IP and the per-IP limit would collapse into one shared limit. If
+  that happens, this needs updating to trust the CDN's specific client-IP header — but only after
+  verifying the request actually came from that CDN's published IP ranges, not unconditionally.
 - **Config never in git**: `config.php` and the outside-webroot folder are both outside version
   control; `config.example.php` (a placeholder with no real value) is the only one committed.
 

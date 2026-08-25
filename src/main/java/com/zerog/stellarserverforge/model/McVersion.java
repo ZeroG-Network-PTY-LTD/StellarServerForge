@@ -27,6 +27,9 @@ public final class McVersion {
     }
 
     public static McVersion parse(String version) {
+        if (version == null || version.isBlank()) {
+            throw new IllegalArgumentException("Minecraft version is not set — run the setup wizard first.");
+        }
         String[] tokens = version.split("\\.", 3);
         int major;
         int minor = 0;

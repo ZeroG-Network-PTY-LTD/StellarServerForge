@@ -63,6 +63,7 @@ public class DashboardPanel extends JPanel {
 
     private final JTextArea console = new JTextArea();
     private volatile String lastResolvedJavaCommand;
+    private volatile boolean stopRequested;
     private int restartCount;
 
     public DashboardPanel(AppContext ctx, ServerSettings settings, Runnable onReenterSettings) {
@@ -426,8 +427,10 @@ public class DashboardPanel extends JPanel {
     private void onLaunch(ActionEvent e) {
         launchButton.setEnabled(false);
         settingsButton.setEnabled(false);
+        stopButton.setEnabled(true);
         console.setText("");
         restartCount = 0;
+        stopRequested = false;
 
         new SwingWorker<Void, Void>() {
             @Override
@@ -458,12 +461,22 @@ public class DashboardPanel extends JPanel {
     private static final class LaunchAborted extends RuntimeException {
     }
 
+    /** Checked between each phase of the launch sequence (and before each auto-restart) so Stop
+     * takes effect at the next opportunity even when clicked before the server process exists yet
+     * to signal, or during the crash/auto-restart gap between two attempts. */
+    private void checkStopRequested() {
+        if (stopRequested) {
+            throw new LaunchAborted();
+        }
+    }
+
     private void runLaunchSequence() throws Exception {
         setStatus("Resolving Java...");
         appendConsole("Resolving Java " + settings.getJavaVersion() + "...");
         JavaProvisioningService.ResolvedJava java = ctx.javaProvisioningService.resolve(
                 settings.getJavaVersion(), settings.getJavaOverrideMode());
         appendConsole("Using Java from: " + java.source() + " (" + java.command() + ")");
+        checkStopRequested();
 
         setStatus("Checking server.properties...");
         ServerPropertiesService.RepairResult repair =
@@ -475,25 +488,30 @@ public class DashboardPanel extends JPanel {
             appendConsole("Note: server.properties has server-ip set to '" + repair.serverIpValue()
                     + "' — this restricts connections to that address. Clear it in server.properties if unintended.");
         }
+        checkStopRequested();
 
         setStatus("Checking port availability...");
         if (!ctx.portConflictService.isPortFree(settings.getPort())) {
             handlePortConflict();
         }
+        checkStopRequested();
 
         setStatus("Checking EULA...");
         if (!ctx.eulaService.isAccepted()) {
             handleEulaPrompt();
         }
+        checkStopRequested();
 
         McVersion mc = McVersion.parse(settings.getMinecraftVersion());
         List<String> tailArgs = ensureModLoaderInstalledAndBuildTailArgs(mc, java.command());
+        checkStopRequested();
 
         List<String> jvmArgs = LaunchArgsBuilder.buildJvmArgs(settings, settings.getJavaVersion());
         lastResolvedJavaCommand = java.command();
         java.nio.file.Path logFile = ctx.serverDir.resolve("logs").resolve("latest.log");
 
         while (true) {
+            checkStopRequested();
             setStatus("Running");
             SwingUtilities.invokeLater(() -> stopButton.setEnabled(true));
             appendConsole("Launching server...");
@@ -503,12 +521,12 @@ public class DashboardPanel extends JPanel {
             appendConsole("Server process exited with code " + exitCode + ".");
 
             boolean graceful = LogDiagnostics.isGracefulStop(logFile);
-            if (!graceful && autoRestartCheckbox.isSelected() && restartCount < 5) {
+            if (!graceful && !stopRequested && autoRestartCheckbox.isSelected() && restartCount < 5) {
                 restartCount++;
                 appendConsole("Server stopped unexpectedly — auto-restarting (attempt " + restartCount + "/5)...");
                 continue;
             }
-            if (!graceful) {
+            if (!graceful && !stopRequested) {
                 for (String guidance : LogDiagnostics.diagnose(logFile)) {
                     appendConsole(guidance);
                 }
@@ -611,12 +629,21 @@ public class DashboardPanel extends JPanel {
     }
 
     private void onStop(ActionEvent e) {
+        stopRequested = true;
         stopButton.setEnabled(false);
         new SwingWorker<Void, Void>() {
             @Override
             protected Void doInBackground() {
-                appendConsole("Stopping server...");
-                runner.stop(30);
+                if (runner.isRunning()) {
+                    appendConsole("Stopping server...");
+                    runner.stop(30);
+                } else {
+                    // Not running yet (still resolving Java, installing the modloader, etc.) — there's
+                    // no process to signal, but runLaunchSequence checks stopRequested between each
+                    // step and will abort at the next checkpoint instead of proceeding to launch or
+                    // auto-restarting after a crash.
+                    appendConsole("Stop requested — will cancel before the next step.");
+                }
                 return null;
             }
         }.execute();

@@ -21,6 +21,10 @@ public final class ChecksumUtil {
         return hash(file, "SHA-256");
     }
 
+    public static String md5(Path file) throws IOException {
+        return hash(file, "MD5");
+    }
+
     private static String hash(Path file, String algorithm) throws IOException {
         try {
             MessageDigest digest = MessageDigest.getInstance(algorithm);
@@ -43,9 +47,11 @@ public final class ChecksumUtil {
     }
 
     public static boolean matches(Path file, String expectedHex, String algorithm) throws IOException {
-        String actual = "SHA-256".equalsIgnoreCase(algorithm) || "SHA256".equalsIgnoreCase(algorithm)
-                ? sha256(file)
-                : sha1(file);
+        String actual = switch (algorithm.toUpperCase().replace("-", "")) {
+            case "SHA256" -> sha256(file);
+            case "MD5" -> md5(file);
+            default -> sha1(file);
+        };
         return actual.equalsIgnoreCase(expectedHex.trim());
     }
 }

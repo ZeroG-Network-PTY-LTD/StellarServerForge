@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zerog.stellarserverforge.model.McVersion;
 import com.zerog.stellarserverforge.model.ModLoader;
+import com.zerog.stellarserverforge.net.ChecksumUtil;
 import com.zerog.stellarserverforge.net.HttpFetcher;
 import com.zerog.stellarserverforge.net.RateLimiter;
 
@@ -13,7 +14,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.Comparator;
 import java.util.Map;
+import java.util.Spliterators;
+import java.util.stream.StreamSupport;
 
 /**
  * Resolves and downloads a ZeroG Network mod hosted on CurseForge. By default this goes through
@@ -67,7 +72,17 @@ public class CurseForgeInstallService {
                     + " (" + loader + ").");
         }
 
-        JsonNode chosen = data.get(0);
+        // Don't rely on the API returning newest-first — sort explicitly by file date.
+        JsonNode chosen = StreamSupport.stream(Spliterators.spliteratorUnknownSize(data.iterator(), 0), false)
+                .max(Comparator.comparing(f -> {
+                    try {
+                        return Instant.parse(f.path("fileDate").asText());
+                    } catch (Exception e) {
+                        return Instant.EPOCH;
+                    }
+                }))
+                .orElse(data.get(0));
+
         String downloadUrl = chosen.path("downloadUrl").asText(null);
         String filename = chosen.path("fileName").asText();
         if (downloadUrl == null || downloadUrl.isBlank()) {
@@ -80,6 +95,28 @@ public class CurseForgeInstallService {
         Files.createDirectories(modsDir);
         Path dest = modsDir.resolve(filename);
         http.downloadToFile(downloadUrl, dest);
+
+        String expectedHash = null;
+        String hashAlgo = null;
+        for (JsonNode h : chosen.path("hashes")) {
+            int algo = h.path("algo").asInt(-1);
+            if (algo == 1) { // CurseForge algo 1 = SHA1
+                expectedHash = h.path("value").asText(null);
+                hashAlgo = "SHA-1";
+                break;
+            }
+            if (algo == 2 && expectedHash == null) { // algo 2 = MD5, used only if no SHA1 present
+                expectedHash = h.path("value").asText(null);
+                hashAlgo = "MD5";
+            }
+        }
+        if (expectedHash != null && !expectedHash.isBlank()) {
+            if (!ChecksumUtil.matches(dest, expectedHash, hashAlgo)) {
+                Files.deleteIfExists(dest);
+                throw new IOException("Downloaded file for \"" + entry.getName()
+                        + "\" failed " + hashAlgo + " verification against CurseForge's published hash — deleted, not installed.");
+            }
+        }
         return dest;
     }
 

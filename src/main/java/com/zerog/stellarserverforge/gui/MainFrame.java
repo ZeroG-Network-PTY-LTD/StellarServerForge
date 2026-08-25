@@ -54,18 +54,21 @@ public class MainFrame extends JFrame {
         }
     }
 
-    /** The server directory tracks the running jar's own folder, not the process's working
-     * directory — so settings.json/mods/etc. land next to the built jar regardless of how it was
-     * launched (double-click, a shortcut with a different "Start in" folder, a script elsewhere). */
+    /** When actually packaged as a jar, the server directory tracks the jar's own folder rather
+     * than the process's working directory — so settings.json/mods/etc. land next to the built jar
+     * regardless of how it was launched (double-click, a shortcut with a different "Start in"
+     * folder, a script elsewhere). When there's no real jar to locate (running via an IDE launcher
+     * or {@code gradlew run}, where the code source is a classes/ directory, not a jar file), that
+     * directory is build output — falls back to the working directory instead so a `gradlew clean`
+     * can't wipe test settings/mods/world data. */
     private static Path resolveServerDir() {
         try {
             Path location = Path.of(MainFrame.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-            Path dir = Files.isRegularFile(location) ? location.getParent() : location;
-            if (dir != null) {
-                return dir;
+            if (Files.isRegularFile(location) && location.getParent() != null) {
+                return location.getParent();
             }
         } catch (URISyntaxException | RuntimeException ignored) {
-            // Fall through to the working-directory fallback below (e.g. running from an IDE/gradlew run).
+            // Fall through to the working-directory fallback below.
         }
         return Path.of(System.getProperty("user.dir"));
     }

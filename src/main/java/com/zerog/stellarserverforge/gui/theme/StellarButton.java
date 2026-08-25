@@ -32,18 +32,19 @@ public class StellarButton extends JButton {
         super(text);
         this.variant = variant;
         setFont(StellarTheme.FONT_BODY);
-        setForeground(textColor());
         setContentAreaFilled(false);
         setFocusPainted(false);
         setBorderPainted(false);
         setOpaque(false);
         setCursor(new Cursor(Cursor.HAND_CURSOR));
         setMargin(new java.awt.Insets(6, 14, 6, 14));
+        refreshForeground();
 
         addMouseListener(new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent e) {
                 hovered = true;
+                refreshForeground();
                 repaint();
             }
 
@@ -51,21 +52,47 @@ public class StellarButton extends JButton {
             public void mouseExited(MouseEvent e) {
                 hovered = false;
                 pressedPaint = false;
+                refreshForeground();
                 repaint();
             }
 
             @Override
             public void mousePressed(MouseEvent e) {
                 pressedPaint = true;
+                refreshForeground();
                 repaint();
             }
 
             @Override
             public void mouseReleased(MouseEvent e) {
                 pressedPaint = false;
+                refreshForeground();
                 repaint();
             }
         });
+    }
+
+    @Override
+    public void setEnabled(boolean enabled) {
+        super.setEnabled(enabled);
+        refreshForeground();
+    }
+
+    /** Sets {@link #getForeground()} for the button's current state — called only from event
+     * handlers/state transitions, never from {@link #paintComponent}, so painting stays read-only
+     * with respect to component properties. */
+    private void refreshForeground() {
+        if (variant == null) {
+            return; // Defensive: a superclass constructor path could in principle call setEnabled()
+                     // before this field is assigned; nothing to color yet if so.
+        }
+        if (!isEnabled()) {
+            setForeground(withAlpha(textColor(), 0.45f));
+        } else if (pressedPaint) {
+            setForeground(StellarTheme.ACCENT_200);
+        } else {
+            setForeground(textColor());
+        }
     }
 
     private Color borderColor() {
@@ -109,13 +136,9 @@ public class StellarButton extends JButton {
             if (pressedPaint) {
                 g2.setColor(StellarTheme.ACCENT_800);
                 g2.fill(shape);
-                setForeground(StellarTheme.ACCENT_200);
             } else if (hovered) {
                 g2.setColor(StellarTheme.ACCENT_900);
                 g2.fill(shape);
-                setForeground(textColor());
-            } else {
-                setForeground(textColor());
             }
 
             Color border = hovered ? hoverBorderColor() : borderColor();
@@ -125,7 +148,6 @@ public class StellarButton extends JButton {
                 g2.draw(shape);
             }
         } else {
-            setForeground(withAlpha(textColor(), 0.45f));
             Color border = borderColor();
             if (border != null) {
                 g2.setColor(withAlpha(border, 0.45f));

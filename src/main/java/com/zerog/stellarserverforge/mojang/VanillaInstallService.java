@@ -41,9 +41,6 @@ public class VanillaInstallService {
      */
     public Path ensureInstalled(MojangManifestService.VersionEntry version) throws IOException, InterruptedException {
         Path jarPath = serverJarPath(version.id());
-        if (Files.exists(jarPath)) {
-            return jarPath;
-        }
 
         Path perVersionJson = perVersionJsonPath(version.id());
         Files.createDirectories(perVersionJson.getParent());
@@ -56,6 +53,12 @@ public class VanillaInstallService {
         JsonNode server = root.path("downloads").path("server");
         String downloadUrl = server.path("url").asText();
         String expectedSha1 = server.path("sha1").asText();
+
+        // Re-verify even if the jar already exists — trusting an existing file forever would let a
+        // jar corrupted by an earlier interrupted run (or anything else) get silently reused.
+        if (Files.exists(jarPath) && ChecksumUtil.matches(jarPath, expectedSha1, "SHA-1")) {
+            return jarPath;
+        }
 
         for (int attempt = 0; attempt < 2; attempt++) {
             http.downloadToFile(downloadUrl, jarPath);

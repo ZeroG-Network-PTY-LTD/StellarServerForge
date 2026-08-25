@@ -137,7 +137,7 @@ public class ZeroGModsDialog extends JDialog {
             reload(false);
         } else if (ctx.zeroGModCatalogService.hasCachedCopy()) {
             try {
-                populate(ctx.zeroGModCatalogService.loadCached());
+                applyResult(ctx.zeroGModCatalogService.loadCached());
                 log("Loaded the last cached copy of the catalog (no URL set yet).");
             } catch (IOException e) {
                 log("Could not read the cached catalog: " + e.getMessage());
@@ -152,9 +152,9 @@ public class ZeroGModsDialog extends JDialog {
         reloadButton.setEnabled(false);
         log("Fetching catalog from " + url + "...");
 
-        new SwingWorker<List<ZeroGModEntry>, Void>() {
+        new SwingWorker<com.zerog.stellarserverforge.zerogmods.ZeroGModCatalogService.FetchResult, Void>() {
             @Override
-            protected List<ZeroGModEntry> doInBackground() throws Exception {
+            protected com.zerog.stellarserverforge.zerogmods.ZeroGModCatalogService.FetchResult doInBackground() throws Exception {
                 return ctx.zeroGModCatalogService.fetch(url);
             }
 
@@ -162,9 +162,7 @@ public class ZeroGModsDialog extends JDialog {
             protected void done() {
                 reloadButton.setEnabled(true);
                 try {
-                    List<ZeroGModEntry> entries = get();
-                    populate(entries);
-                    log("Loaded " + entries.size() + " mod(s) from the catalog.");
+                    applyResult(get());
                     if (persist) {
                         persistFields();
                     }
@@ -172,7 +170,7 @@ public class ZeroGModsDialog extends JDialog {
                     log("Failed to fetch catalog: " + rootMessage(ex));
                     if (ctx.zeroGModCatalogService.hasCachedCopy()) {
                         try {
-                            populate(ctx.zeroGModCatalogService.loadCached());
+                            applyResult(ctx.zeroGModCatalogService.loadCached());
                             log("Fell back to the last cached copy.");
                         } catch (IOException ignored) {
                         }
@@ -182,9 +180,13 @@ public class ZeroGModsDialog extends JDialog {
         }.execute();
     }
 
-    private void populate(List<ZeroGModEntry> entries) {
+    private void applyResult(com.zerog.stellarserverforge.zerogmods.ZeroGModCatalogService.FetchResult result) {
         listModel.clear();
-        entries.forEach(listModel::addElement);
+        result.entries().forEach(listModel::addElement);
+        log("Loaded " + result.entries().size() + " mod(s) from the catalog.");
+        for (String warning : result.skipped()) {
+            log("Skipped — " + warning);
+        }
     }
 
     private void persistFields() {
@@ -194,6 +196,10 @@ public class ZeroGModsDialog extends JDialog {
             ctx.settingsService.save(settings);
         } catch (IOException e) {
             log("Could not save settings.json: " + e.getMessage());
+        } catch (RuntimeException e) {
+            // Covers SecretStore.encrypt() failing (e.g. a corrupted local encryption key file) —
+            // that's a real problem worth surfacing, but shouldn't crash uncaught on the EDT.
+            log("Could not save settings.json (encryption failed): " + e.getMessage());
         }
     }
 

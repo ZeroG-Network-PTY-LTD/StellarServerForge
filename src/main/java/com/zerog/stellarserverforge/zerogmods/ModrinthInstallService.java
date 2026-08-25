@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zerog.stellarserverforge.model.McVersion;
 import com.zerog.stellarserverforge.model.ModLoader;
+import com.zerog.stellarserverforge.net.ChecksumUtil;
 import com.zerog.stellarserverforge.net.HttpFetcher;
 
 import java.io.IOException;
@@ -11,6 +12,10 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.util.Comparator;
+import java.util.Spliterators;
+import java.util.stream.StreamSupport;
 
 /** Resolves and downloads a ZeroG Network mod from Modrinth's public API (no auth required). */
 public class ModrinthInstallService {
@@ -29,7 +34,18 @@ public class ModrinthInstallService {
             throw new IOException("No Modrinth version of \"" + entry.getName() + "\" is published for "
                     + mc.raw() + " (" + loader + ").");
         }
-        JsonNode chosen = versions.get(0);
+
+        // Don't rely on the API returning newest-first — sort explicitly by publish date.
+        JsonNode chosen = StreamSupport.stream(Spliterators.spliteratorUnknownSize(versions.iterator(), 0), false)
+                .max(Comparator.comparing(v -> {
+                    try {
+                        return Instant.parse(v.path("date_published").asText());
+                    } catch (Exception e) {
+                        return Instant.EPOCH;
+                    }
+                }))
+                .orElse(versions.get(0));
+
         JsonNode files = chosen.path("files");
         JsonNode file = null;
         for (JsonNode f : files) {
@@ -47,9 +63,19 @@ public class ModrinthInstallService {
 
         String downloadUrl = file.path("url").asText();
         String filename = file.path("filename").asText();
+        String expectedSha1 = file.path("hashes").path("sha1").asText(null);
+
         Files.createDirectories(modsDir);
         Path dest = modsDir.resolve(filename);
         http.downloadToFile(downloadUrl, dest);
+
+        if (expectedSha1 != null && !expectedSha1.isBlank()) {
+            if (!ChecksumUtil.matches(dest, expectedSha1, "SHA-1")) {
+                Files.deleteIfExists(dest);
+                throw new IOException("Downloaded file for \"" + entry.getName()
+                        + "\" failed SHA-1 verification against Modrinth's published hash — deleted, not installed.");
+            }
+        }
         return dest;
     }
 
