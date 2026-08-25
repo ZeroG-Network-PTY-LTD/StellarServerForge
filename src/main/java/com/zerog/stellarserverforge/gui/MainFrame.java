@@ -17,6 +17,7 @@ public class MainFrame extends JFrame {
     private static final String CARD_DASHBOARD = "dashboard";
     private static final String CARD_SETTINGS = "settings";
     private static final String CARD_UTILITIES = "utilities";
+    private static final String CARD_MODS = "mods";
 
     private final AppContext ctx;
     private final CardLayout cardLayout = new CardLayout();
@@ -26,6 +27,7 @@ public class MainFrame extends JFrame {
     private SetupWizardPanel wizardPanel;
     private SettingsPanel settingsPanel;
     private UtilitiesPanel utilitiesPanel;
+    private ModsPanel modsPanel;
     private ServerSettings settings;
 
     public MainFrame() {
@@ -92,7 +94,7 @@ public class MainFrame extends JFrame {
     private void showDashboard(ServerSettings settings) {
         this.settings = settings;
         if (dashboardPanel == null) {
-            dashboardPanel = new DashboardPanel(ctx, settings, this::showSettings, this::showUtilities);
+            dashboardPanel = new DashboardPanel(ctx, settings, this::showSettings, this::showUtilities, this::showMods);
             cards.add(dashboardPanel, CARD_DASHBOARD);
         } else {
             dashboardPanel.updateSettings(settings);
@@ -123,6 +125,17 @@ public class MainFrame extends JFrame {
         utilitiesPanel = new UtilitiesPanel(ctx, settings, this::backToDashboard);
         cards.add(utilitiesPanel, CARD_UTILITIES);
         cardLayout.show(cards, CARD_UTILITIES);
+    }
+
+    /** Reached from the dashboard's "Mods" nav link/toolbar button — an in-window screen instead
+     * of a separate modal dialog. */
+    private void showMods() {
+        if (modsPanel != null) {
+            cards.remove(modsPanel);
+        }
+        modsPanel = new ModsPanel(ctx, settings, this::backToDashboard);
+        cards.add(modsPanel, CARD_MODS);
+        cardLayout.show(cards, CARD_MODS);
     }
 
     private void backToDashboard() {

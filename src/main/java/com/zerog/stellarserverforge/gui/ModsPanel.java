@@ -2,6 +2,7 @@ package com.zerog.stellarserverforge.gui;
 
 import com.zerog.stellarserverforge.gui.theme.StellarButton;
 import com.zerog.stellarserverforge.gui.theme.StellarLabels;
+import com.zerog.stellarserverforge.gui.theme.StellarPanel;
 import com.zerog.stellarserverforge.gui.theme.StellarTheme;
 import com.zerog.stellarserverforge.model.ModLoader;
 import com.zerog.stellarserverforge.model.ServerSettings;
@@ -21,9 +22,10 @@ import java.util.List;
 
 /**
  * Mods folder tools: client-only mod scanning (spec §10.1), MCreator mod detection (spec §10.2),
- * and a plain folder listing (spec §10.3).
+ * and a plain folder listing (spec §10.3). A real in-window screen (reached from the dashboard's
+ * "Mods" nav link/toolbar button) rather than a separate modal dialog.
  */
-public class ModsDialog extends JDialog {
+public class ModsPanel extends JPanel {
 
     private final AppContext ctx;
     private final ServerSettings settings;
@@ -32,15 +34,88 @@ public class ModsDialog extends JDialog {
     private final JList<ModEntry> clientModsList = new JList<>(clientModsModel);
     private final JLabel statusLabel = StellarLabels.muted(" ");
     private final JTextArea infoArea = new JTextArea(6, 50);
+    private final StellarButton moveButton = new StellarButton("Move selected to CLIENTMODS", StellarButton.Variant.SECONDARY);
 
-    public ModsDialog(Frame owner, AppContext ctx, ServerSettings settings) {
-        super(owner, "Mods", true);
+    public ModsPanel(AppContext ctx, ServerSettings settings, Runnable onBack) {
         this.ctx = ctx;
         this.settings = settings;
 
-        getContentPane().setBackground(StellarTheme.BG);
-        setLayout(new BorderLayout(10, 10));
-        ((JComponent) getContentPane()).setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
+        setOpaque(false);
+        setLayout(new BorderLayout(0, StellarTheme.SPACE_17));
+        setBorder(BorderFactory.createEmptyBorder(StellarTheme.SPACE_22, StellarTheme.SPACE_22,
+                StellarTheme.SPACE_22, StellarTheme.SPACE_22));
+
+        JPanel header = new JPanel(new BorderLayout(StellarTheme.SPACE_11, 0));
+        header.setOpaque(false);
+        StellarButton back = new StellarButton("Back", StellarButton.Variant.GHOST);
+        back.addActionListener(e -> onBack.run());
+        header.add(back, BorderLayout.WEST);
+        header.add(StellarLabels.title("Mods"), BorderLayout.CENTER);
+        add(header, BorderLayout.NORTH);
+
+        StellarPanel body = new StellarPanel(new BorderLayout(0, StellarTheme.SPACE_11));
+        body.setBorder(BorderFactory.createEmptyBorder(StellarTheme.SPACE_17, StellarTheme.SPACE_17,
+                StellarTheme.SPACE_17, StellarTheme.SPACE_17));
+
+        JPanel top = new JPanel();
+        top.setOpaque(false);
+        top.setLayout(new BoxLayout(top, BoxLayout.Y_AXIS));
+        top.add(StellarLabels.kicker("Client-only mod scanner"));
+        top.add(Box.createVerticalStrut(StellarTheme.SPACE_6));
+        JTextArea caption = new JTextArea("Flags mods that only belong on the client, so they can be moved out "
+                + "of a dedicated server's mods folder without breaking anything else that depends on them.",
+                2, 80);
+        caption.setEditable(false);
+        caption.setFocusable(false);
+        caption.setOpaque(false);
+        caption.setLineWrap(true);
+        caption.setWrapStyleWord(true);
+        caption.setFont(StellarTheme.FONT_CAPTION);
+        caption.setForeground(StellarTheme.TEXT_SECONDARY);
+        caption.setAlignmentX(Component.LEFT_ALIGNMENT);
+        caption.setBorder(BorderFactory.createEmptyBorder());
+        top.add(caption);
+        top.add(Box.createVerticalStrut(StellarTheme.SPACE_11));
+
+        JPanel actionsRow = new JPanel(new FlowLayout(FlowLayout.LEFT, StellarTheme.SPACE_8, 0));
+        actionsRow.setOpaque(false);
+        StellarButton scanClientButton = new StellarButton("Scan for client-only mods", StellarButton.Variant.PRIMARY);
+        StellarButton mcreatorButton = new StellarButton("Scan for MCreator mods", StellarButton.Variant.SECONDARY);
+        StellarButton listButton = new StellarButton("List mods folder", StellarButton.Variant.SECONDARY);
+        actionsRow.add(scanClientButton);
+        actionsRow.add(mcreatorButton);
+        actionsRow.add(listButton);
+        top.add(actionsRow);
+        body.add(top, BorderLayout.NORTH);
+
+        clientModsList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+        clientModsList.setBackground(StellarTheme.SURFACE);
+        clientModsList.setForeground(StellarTheme.TEXT_PRIMARY);
+        clientModsList.setFont(StellarTheme.FONT_MONO);
+        clientModsList.setCellRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                ModEntry entry = (ModEntry) value;
+                Component c = super.getListCellRendererComponent(list, entry.modId() + "  (" + entry.fileName() + ")",
+                        index, isSelected, cellHasFocus);
+                setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
+                return c;
+            }
+        });
+
+        JPanel center = new JPanel(new BorderLayout(0, StellarTheme.SPACE_8));
+        center.setOpaque(false);
+        JScrollPane listScroll = new JScrollPane(clientModsList);
+        listScroll.setBorder(BorderFactory.createLineBorder(StellarTheme.NEUTRAL_800));
+        listScroll.setPreferredSize(new Dimension(100, 140));
+        center.add(listScroll, BorderLayout.CENTER);
+
+        JPanel moveRow = new JPanel(new BorderLayout());
+        moveRow.setOpaque(false);
+        moveRow.add(moveButton, BorderLayout.WEST);
+        moveRow.add(statusLabel, BorderLayout.EAST);
+        center.add(moveRow, BorderLayout.SOUTH);
+        body.add(center, BorderLayout.CENTER);
 
         infoArea.setEditable(false);
         infoArea.setLineWrap(true);
@@ -48,53 +123,19 @@ public class ModsDialog extends JDialog {
         infoArea.setBackground(StellarTheme.CONSOLE_BG);
         infoArea.setForeground(StellarTheme.NEUTRAL_100);
         infoArea.setFont(StellarTheme.FONT_MONO);
-        JPanel north = new JPanel(new BorderLayout());
-        north.setOpaque(false);
-        north.add(StellarLabels.heading("Mods"), BorderLayout.NORTH);
-        north.add(new JScrollPane(infoArea), BorderLayout.CENTER);
-        add(north, BorderLayout.NORTH);
+        infoArea.setBorder(BorderFactory.createEmptyBorder(StellarTheme.SPACE_11, StellarTheme.SPACE_11,
+                StellarTheme.SPACE_11, StellarTheme.SPACE_11));
+        JScrollPane infoScroll = new JScrollPane(infoArea);
+        infoScroll.setBorder(BorderFactory.createEmptyBorder());
+        infoScroll.setPreferredSize(new Dimension(100, 140));
+        body.add(infoScroll, BorderLayout.SOUTH);
 
-        clientModsList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
-        clientModsList.setBackground(StellarTheme.SURFACE);
-        clientModsList.setForeground(StellarTheme.TEXT_PRIMARY);
-        clientModsList.setCellRenderer(new DefaultListCellRenderer() {
-            @Override
-            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
-                ModEntry entry = (ModEntry) value;
-                return super.getListCellRendererComponent(list, entry.modId() + "  (" + entry.fileName() + ")",
-                        index, isSelected, cellHasFocus);
-            }
-        });
-        add(new JScrollPane(clientModsList), BorderLayout.CENTER);
-
-        JPanel south = new JPanel(new BorderLayout());
-        south.setOpaque(false);
-        south.add(statusLabel, BorderLayout.NORTH);
-
-        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        buttons.setOpaque(false);
-        StellarButton scanClientButton = new StellarButton("Scan for client-only mods", StellarButton.Variant.PRIMARY);
-        StellarButton moveButton = new StellarButton("Move selected", StellarButton.Variant.SECONDARY);
-        StellarButton mcreatorButton = new StellarButton("Scan for MCreator mods", StellarButton.Variant.SECONDARY);
-        StellarButton listButton = new StellarButton("List mods folder", StellarButton.Variant.SECONDARY);
-        StellarButton closeButton = new StellarButton("Close", StellarButton.Variant.GHOST);
-        buttons.add(scanClientButton);
-        buttons.add(moveButton);
-        buttons.add(mcreatorButton);
-        buttons.add(listButton);
-        buttons.add(closeButton);
-        south.add(buttons, BorderLayout.SOUTH);
-        add(south, BorderLayout.SOUTH);
+        add(body, BorderLayout.CENTER);
 
         scanClientButton.addActionListener(e -> scanClientMods());
         moveButton.addActionListener(e -> moveSelected());
         mcreatorButton.addActionListener(e -> scanMcreator());
         listButton.addActionListener(e -> listModsFolder());
-        closeButton.addActionListener(e -> dispose());
-
-        setSize(600, 480);
-        setMinimumSize(new Dimension(500, 380));
-        setLocationRelativeTo(owner);
     }
 
     private Path modsDir() {
