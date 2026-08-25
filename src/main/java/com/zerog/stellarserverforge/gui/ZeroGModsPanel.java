@@ -286,8 +286,19 @@ public class ZeroGModsPanel extends JPanel {
             nameLabel.setText(entry.getName());
             descLabel.setText(entry.getDescription() == null ? "" : entry.getDescription());
             sourceLabel.setText(entry.getSource() == null ? "" : entry.getSource().name());
-            sourceLabel.setForeground(entry.getSource() == ZeroGModEntry.Source.MODRINTH
-                    ? StellarTheme.STATUS_RUNNING : StellarTheme.STELLAR_GOLD);
+            Color sourceColor = entry.getSource() == ZeroGModEntry.Source.MODRINTH
+                    ? StellarTheme.STATUS_RUNNING : StellarTheme.STELLAR_GOLD;
+            sourceLabel.setForeground(sourceColor);
+            sourceLabel.setIconTextGap(5);
+            if (entry.getSource() == ZeroGModEntry.Source.MODRINTH) {
+                sourceLabel.setIcon(new com.zerog.stellarserverforge.gui.theme.StellarSourceIcon(
+                        com.zerog.stellarserverforge.gui.theme.StellarSourceIcon.Kind.MODRINTH, 14, sourceColor));
+            } else if (entry.getSource() == ZeroGModEntry.Source.CURSEFORGE) {
+                sourceLabel.setIcon(new com.zerog.stellarserverforge.gui.theme.StellarSourceIcon(
+                        com.zerog.stellarserverforge.gui.theme.StellarSourceIcon.Kind.CURSEFORGE, 14, sourceColor));
+            } else {
+                sourceLabel.setIcon(null);
+            }
             setBackground(isSelected ? StellarTheme.ACCENT_900 : StellarTheme.SURFACE);
             setOpaque(true);
             return this;
