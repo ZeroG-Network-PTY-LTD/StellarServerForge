@@ -1,8 +1,12 @@
 name: Build and notify Discord
 
-# Builds the shaded jar on every push to main, publishes it as a GitHub Release asset, and posts
-# a formatted release announcement to Discord — matching the ZeroG Network NeoEssentials-Dashboard
+# Builds the shaded jar on every push to main, publishes it as a GitHub Release asset, and posts a
+# rich embed release announcement to Discord — matching the ZeroG Network NeoEssentials-Dashboard
 # release-message format. Runs on every push to main (not on tags/releases) per project decision.
+#
+# This is the "release announcement" webhook only (DISCORD_WEBHOOK_URL_2). Raw GitHub activity
+# (commits/PRs/issues/releases) is handled separately by a native GitHub repo webhook pointed at
+# Discord's own /github-formatted endpoint — no Actions code involved for that one.
 
 on:
   push:
@@ -59,34 +63,36 @@ jobs:
             --title "StellarServerForge ${{ steps.package.outputs.short_sha }}" \
             --notes "Automated build from commit ${{ steps.package.outputs.short_sha }} on main."
 
-      - name: Notify Discord
+      - name: Notify Discord (embed)
         env:
-          DISCORD_WEBHOOK_URL_1: ${{ secrets.DISCORD_WEBHOOK_URL_1 }}
           DISCORD_WEBHOOK_URL_2: ${{ secrets.DISCORD_WEBHOOK_URL_2 }}
           SHORT_SHA: ${{ steps.package.outputs.short_sha }}
           ZIP_NAME: ${{ steps.package.outputs.zip_name }}
           SIZE_MB: ${{ steps.package.outputs.size_mb }}
         run: |
           ASSET_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/build-${SHORT_SHA}/${ZIP_NAME}"
-          TIMESTAMP=$(date -u +"%Y/%m/%d %H:%M")
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-          CONTENT=$(cat <<EOF
-          🆕 **New Release**
-          Branch \`main\`
-          StellarServerForge \`${SHORT_SHA}\`
+          PAYLOAD=$(jq -n \
+            --arg sha "$SHORT_SHA" \
+            --arg zip "$ZIP_NAME" \
+            --arg size "$SIZE_MB" \
+            --arg url "$ASSET_URL" \
+            --arg ts "$TIMESTAMP" \
+            '{
+              embeds: [
+                {
+                  title: "🆕 New Release",
+                  color: 9536729,
+                  fields: [
+                    { name: "Branch", value: "`main`", inline: true },
+                    { name: "StellarServerForge", value: ("`" + $sha + "`"), inline: true },
+                    { name: $zip, value: ($size + " MB • [Download](" + $url + ")"), inline: false }
+                  ],
+                  timestamp: $ts
+                }
+              ]
+            }')
 
-          **${ZIP_NAME}**
-          ${SIZE_MB} MB • [Download](${ASSET_URL})
-
-          ${TIMESTAMP} UTC
-          EOF
-          )
-
-          PAYLOAD=$(jq -n --arg content "$CONTENT" '{content: $content}')
-
-          for WEBHOOK in "$DISCORD_WEBHOOK_URL_1" "$DISCORD_WEBHOOK_URL_2"; do
-            if [ -n "$WEBHOOK" ]; then
-              curl -sf -H "Content-Type: application/json" -X POST -d "$PAYLOAD" "$WEBHOOK" \
-                || echo "::warning::Discord webhook post failed for one of the configured webhooks"
-            fi
-          done
+          curl -sf -H "Content-Type: application/json" -X POST -d "$PAYLOAD" "$DISCORD_WEBHOOK_URL_2" \
+            || echo "::warning::Discord release-embed webhook post failed"
