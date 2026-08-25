@@ -1,0 +1,92 @@
+name: Build and notify Discord
+
+# Builds the shaded jar on every push to main, publishes it as a GitHub Release asset, and posts
+# a formatted release announcement to Discord — matching the ZeroG Network NeoEssentials-Dashboard
+# release-message format. Runs on every push to main (not on tags/releases) per project decision.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write # needed to create the GitHub Release and upload its asset
+
+jobs:
+  build-and-notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Build shaded jar
+        run: |
+          chmod +x ./gradlew
+          ./gradlew shadowJar --no-daemon
+
+      - name: Package release zip
+        id: package
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          JAR_PATH=$(find build/libs -name "*-all.jar" | head -n1)
+          ZIP_NAME="StellarServerForge_v${SHORT_SHA}.zip"
+
+          mkdir -p dist
+          cp "$JAR_PATH" "dist/"
+          (cd dist && zip -q "$ZIP_NAME" "$(basename "$JAR_PATH")")
+
+          SIZE_BYTES=$(stat -c%s "dist/$ZIP_NAME")
+          SIZE_MB=$(awk "BEGIN { printf \"%.2f\", $SIZE_BYTES / 1048576 }")
+
+          {
+            echo "short_sha=$SHORT_SHA"
+            echo "zip_name=$ZIP_NAME"
+            echo "zip_path=dist/$ZIP_NAME"
+            echo "size_mb=$SIZE_MB"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "build-${{ steps.package.outputs.short_sha }}" \
+            "${{ steps.package.outputs.zip_path }}" \
+            --title "StellarServerForge ${{ steps.package.outputs.short_sha }}" \
+            --notes "Automated build from commit ${{ steps.package.outputs.short_sha }} on main."
+
+      - name: Notify Discord
+        env:
+          DISCORD_WEBHOOK_URL_1: ${{ secrets.DISCORD_WEBHOOK_URL_1 }}
+          DISCORD_WEBHOOK_URL_2: ${{ secrets.DISCORD_WEBHOOK_URL_2 }}
+          SHORT_SHA: ${{ steps.package.outputs.short_sha }}
+          ZIP_NAME: ${{ steps.package.outputs.zip_name }}
+          SIZE_MB: ${{ steps.package.outputs.size_mb }}
+        run: |
+          ASSET_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/build-${SHORT_SHA}/${ZIP_NAME}"
+          TIMESTAMP=$(date -u +"%Y/%m/%d %H:%M")
+
+          CONTENT=$(cat <<EOF
+          🆕 **New Release**
+          Branch \`main\`
+          StellarServerForge \`${SHORT_SHA}\`
+
+          **${ZIP_NAME}**
+          ${SIZE_MB} MB • [Download](${ASSET_URL})
+
+          ${TIMESTAMP} UTC
+          EOF
+          )
+
+          PAYLOAD=$(jq -n --arg content "$CONTENT" '{content: $content}')
+
+          for WEBHOOK in "$DISCORD_WEBHOOK_URL_1" "$DISCORD_WEBHOOK_URL_2"; do
+            if [ -n "$WEBHOOK" ]; then
+              curl -sf -H "Content-Type: application/json" -X POST -d "$PAYLOAD" "$WEBHOOK" \
+                || echo "::warning::Discord webhook post failed for one of the configured webhooks"
+            fi
+          done
