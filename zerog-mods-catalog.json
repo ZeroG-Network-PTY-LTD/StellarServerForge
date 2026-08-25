@@ -5,12 +5,5 @@
     "source": "MODRINTH",
     "projectId": "neoessentials",
     "pageUrl": "https://modrinth.com/mod/neoessentials"
-  },
-  {
-    "name": "NeoEssentials (CurseForge)",
-    "description": "A comprehensive server-side essentials mod for Minecraft NeoForge servers, inspired by EssentialsX for Bukkit/Spigot.",
-    "source": "CURSEFORGE",
-    "projectId": "1292165",
-    "pageUrl": "https://www.curseforge.com/minecraft/mc-mods/neoessentials"
   }
 ]
