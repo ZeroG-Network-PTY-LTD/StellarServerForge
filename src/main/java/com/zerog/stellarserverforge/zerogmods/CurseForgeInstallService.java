@@ -89,11 +89,11 @@ public class CurseForgeInstallService {
                 .orElse(data.get(0));
 
         String downloadUrl = chosen.path("downloadUrl").asText(null);
-        String filename = chosen.path("fileName").asText();
         if (downloadUrl == null || downloadUrl.isBlank()) {
             throw new IOException("CurseForge didn't provide a direct download URL for \"" + entry.getName()
                     + "\" (the author may have disabled third-party downloads) — use \"Open page\" instead.");
         }
+        String filename = sanitizeFileName(chosen.path("fileName").asText(), entry.getName());
 
         // downloadUrl is a public CurseForge CDN link — no API key needed for the file itself,
         // whether the metadata above came from the proxy or a personal key.
@@ -137,5 +137,21 @@ public class CurseForgeInstallService {
 
     private static String urlEncode(String s) {
         return URLEncoder.encode(s, StandardCharsets.UTF_8);
+    }
+
+    /** CurseForge's reported file name ends up straight in a {@code Path.resolve()} call — reduce
+     * it to a bare file name so a compromised proxy/MITM response can't escape {@code modsDir} via
+     * {@code ../} segments or an absolute path. */
+    private static String sanitizeFileName(String rawFilename, String modName) throws IOException {
+        String name;
+        try {
+            name = Path.of(rawFilename).getFileName().toString();
+        } catch (java.nio.file.InvalidPathException e) {
+            throw new IOException("CurseForge returned an invalid file name for \"" + modName + "\".", e);
+        }
+        if (name.isBlank() || name.equals(".") || name.equals("..")) {
+            throw new IOException("CurseForge returned an invalid file name for \"" + modName + "\".");
+        }
+        return name;
     }
 }

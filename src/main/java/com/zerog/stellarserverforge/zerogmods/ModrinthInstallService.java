@@ -62,7 +62,7 @@ public class ModrinthInstallService {
         }
 
         String downloadUrl = file.path("url").asText();
-        String filename = file.path("filename").asText();
+        String filename = sanitizeFileName(file.path("filename").asText(), entry.getName());
         String expectedSha1 = file.path("hashes").path("sha1").asText(null);
 
         Files.createDirectories(modsDir);
@@ -91,5 +91,21 @@ public class ModrinthInstallService {
 
     private static String urlEncode(String s) {
         return URLEncoder.encode(s, StandardCharsets.UTF_8);
+    }
+
+    /** Modrinth's reported filename ends up straight in a {@code Path.resolve()} call — reduce it
+     * to a bare file name so a malicious/compromised response can't escape {@code modsDir} via
+     * {@code ../} segments or an absolute path. */
+    private static String sanitizeFileName(String rawFilename, String modName) throws IOException {
+        String name;
+        try {
+            name = Path.of(rawFilename).getFileName().toString();
+        } catch (java.nio.file.InvalidPathException e) {
+            throw new IOException("Modrinth returned an invalid file name for \"" + modName + "\".", e);
+        }
+        if (name.isBlank() || name.equals(".") || name.equals("..")) {
+            throw new IOException("Modrinth returned an invalid file name for \"" + modName + "\".");
+        }
+        return name;
     }
 }
