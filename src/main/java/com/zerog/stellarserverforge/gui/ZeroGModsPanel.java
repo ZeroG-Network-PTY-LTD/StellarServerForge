@@ -227,7 +227,20 @@ public class ZeroGModsPanel extends JPanel {
                 } catch (Exception ex) {
                     log("Install failed: " + rootMessage(ex));
                     if (entry.getPageUrl() != null && !entry.getPageUrl().isBlank()) {
-                        log("You can still install it manually — click \"Open page\".");
+                        // CurseForge returns no download URL when the author has disabled
+                        // third-party downloads for the file — respecting that choice means the
+                        // only legitimate path is the author's own page, so offer to jump straight
+                        // there instead of leaving the user to find and click "Open page" themselves.
+                        int choice = JOptionPane.showConfirmDialog(ZeroGModsPanel.this,
+                                "Could not download \"" + entry.getName() + "\" automatically — its author has "
+                                        + "disabled third-party downloads on " + entry.getSource() + ". "
+                                        + "Open its page now to download it manually?",
+                                "Manual download needed", JOptionPane.YES_NO_OPTION);
+                        if (choice == JOptionPane.YES_OPTION) {
+                            openPage(entry);
+                        } else {
+                            log("You can still install it manually — click \"Open page\".");
+                        }
                     }
                 }
             }
@@ -240,6 +253,10 @@ public class ZeroGModsPanel extends JPanel {
             log("Select a mod first.");
             return;
         }
+        openPage(entry);
+    }
+
+    private void openPage(ZeroGModEntry entry) {
         String url = entry.getPageUrl();
         if (url == null || url.isBlank()) {
             log("This entry has no page URL in the catalog.");
