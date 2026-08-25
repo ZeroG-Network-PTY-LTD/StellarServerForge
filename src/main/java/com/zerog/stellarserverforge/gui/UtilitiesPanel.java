@@ -2,6 +2,7 @@ package com.zerog.stellarserverforge.gui;
 
 import com.zerog.stellarserverforge.gui.theme.StellarButton;
 import com.zerog.stellarserverforge.gui.theme.StellarLabels;
+import com.zerog.stellarserverforge.gui.theme.StellarPanel;
 import com.zerog.stellarserverforge.gui.theme.StellarTheme;
 import com.zerog.stellarserverforge.model.McVersion;
 import com.zerog.stellarserverforge.model.ServerSettings;
@@ -13,59 +14,95 @@ import java.util.List;
 
 /**
  * Utility features (spec §13): icon generation, server-pack ZIP export, run.sh/run.bat
- * generation, and the cache purge function.
+ * generation, and the cache purge function. A real in-window screen (reached from the dashboard's
+ * "Utilities" nav link/toolbar button) rather than a separate modal dialog.
  */
-public class UtilitiesDialog extends JDialog {
+public class UtilitiesPanel extends JPanel {
+
+    private static final List<String> TAB_NAMES = List.of("Icon", "Server Pack ZIP", "Run Scripts", "Purge Cache");
 
     private final AppContext ctx;
     private final ServerSettings settings;
     private final JTextArea logArea = new JTextArea(10, 60);
+    private final CardLayout tabCardLayout = new CardLayout();
+    private final JPanel tabContent = new JPanel(tabCardLayout);
+    private final JPanel tabStrip = new JPanel(new FlowLayout(FlowLayout.LEFT, StellarTheme.SPACE_6, 0));
+    private String activeTab = TAB_NAMES.get(0);
 
-    public UtilitiesDialog(Frame owner, AppContext ctx, ServerSettings settings) {
-        super(owner, "Utilities", true);
+    public UtilitiesPanel(AppContext ctx, ServerSettings settings, Runnable onBack) {
         this.ctx = ctx;
         this.settings = settings;
 
-        getContentPane().setBackground(StellarTheme.BG);
-        setLayout(new BorderLayout(10, 10));
-        ((JComponent) getContentPane()).setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
+        setOpaque(false);
+        setLayout(new BorderLayout(0, StellarTheme.SPACE_17));
+        setBorder(BorderFactory.createEmptyBorder(StellarTheme.SPACE_22, StellarTheme.SPACE_22,
+                StellarTheme.SPACE_22, StellarTheme.SPACE_22));
 
-        JTabbedPane tabs = new JTabbedPane();
-        tabs.setBackground(StellarTheme.PANEL_BG_SOLID);
-        tabs.setForeground(StellarTheme.TEXT_PRIMARY);
-        tabs.setFont(StellarTheme.FONT_LABEL);
-        tabs.addTab("Icon", buildIconTab());
-        tabs.addTab("Server Pack ZIP", buildZipTab());
-        tabs.addTab("Run Scripts", buildRunScriptsTab());
-        tabs.addTab("Purge Cache", buildPurgeTab());
-        add(tabs, BorderLayout.NORTH);
+        JPanel header = new JPanel(new BorderLayout(StellarTheme.SPACE_11, 0));
+        header.setOpaque(false);
+        StellarButton back = new StellarButton("Back", StellarButton.Variant.GHOST);
+        back.addActionListener(e -> onBack.run());
+        header.add(back, BorderLayout.WEST);
+        header.add(StellarLabels.title("Utilities"), BorderLayout.CENTER);
+        add(header, BorderLayout.NORTH);
+
+        StellarPanel body = new StellarPanel(new BorderLayout(0, StellarTheme.SPACE_11));
+        body.setBorder(BorderFactory.createEmptyBorder(StellarTheme.SPACE_11, StellarTheme.SPACE_11,
+                StellarTheme.SPACE_11, StellarTheme.SPACE_11));
+
+        tabContent.setOpaque(false);
+        tabContent.add(buildIconTab(), "Icon");
+        tabContent.add(buildZipTab(), "Server Pack ZIP");
+        tabContent.add(buildRunScriptsTab(), "Run Scripts");
+        tabContent.add(buildPurgeTab(), "Purge Cache");
+
+        tabStrip.setOpaque(false);
+        rebuildTabStrip();
+
+        JPanel tabArea = new JPanel(new BorderLayout(0, StellarTheme.SPACE_11));
+        tabArea.setOpaque(false);
+        tabArea.add(tabStrip, BorderLayout.NORTH);
+        tabArea.add(tabContent, BorderLayout.CENTER);
+        body.add(tabArea, BorderLayout.NORTH);
 
         logArea.setEditable(false);
         logArea.setBackground(StellarTheme.CONSOLE_BG);
         logArea.setForeground(StellarTheme.NEUTRAL_100);
         logArea.setFont(StellarTheme.FONT_MONO);
-        add(new JScrollPane(logArea), BorderLayout.CENTER);
+        logArea.setBorder(BorderFactory.createEmptyBorder(StellarTheme.SPACE_11, StellarTheme.SPACE_11,
+                StellarTheme.SPACE_11, StellarTheme.SPACE_11));
+        JScrollPane scroll = new JScrollPane(logArea);
+        scroll.setBorder(BorderFactory.createEmptyBorder());
+        body.add(scroll, BorderLayout.CENTER);
 
-        StellarButton closeButton = new StellarButton("Close", StellarButton.Variant.GHOST);
-        closeButton.addActionListener(e -> dispose());
-        JPanel south = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        south.setOpaque(false);
-        south.add(closeButton);
-        add(south, BorderLayout.SOUTH);
+        add(body, BorderLayout.CENTER);
+    }
 
-        setSize(640, 480);
-        setMinimumSize(new Dimension(540, 380));
-        setLocationRelativeTo(owner);
+    private void rebuildTabStrip() {
+        tabStrip.removeAll();
+        for (String name : TAB_NAMES) {
+            boolean selected = name.equals(activeTab);
+            StellarButton tabButton = new StellarButton(name,
+                    selected ? StellarButton.Variant.PRIMARY : StellarButton.Variant.SECONDARY);
+            tabButton.addActionListener(e -> {
+                activeTab = name;
+                tabCardLayout.show(tabContent, name);
+                rebuildTabStrip();
+            });
+            tabStrip.add(tabButton);
+        }
+        tabStrip.revalidate();
+        tabStrip.repaint();
     }
 
     private void log(String message) {
         logArea.append(message + System.lineSeparator());
+        logArea.setCaretPosition(logArea.getDocument().getLength());
     }
 
     private JPanel tabPanel() {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         panel.setOpaque(false);
-        panel.setBackground(StellarTheme.BG);
         return panel;
     }
 
@@ -86,15 +123,16 @@ public class UtilitiesDialog extends JDialog {
         });
 
         customButton.addActionListener(e -> {
-            Color bg = JColorChooser.showDialog(this, "Background Color", Color.BLUE);
+            Window owner = SwingUtilities.getWindowAncestor(this);
+            Color bg = JColorChooser.showDialog(owner, "Background Color", Color.BLUE);
             if (bg == null) {
                 return;
             }
-            Color text = JColorChooser.showDialog(this, "Text Color", Color.YELLOW);
+            Color text = JColorChooser.showDialog(owner, "Text Color", Color.YELLOW);
             if (text == null) {
                 return;
             }
-            String customText = JOptionPane.showInputDialog(this, "Custom text (max 10 characters, optional):");
+            String customText = JOptionPane.showInputDialog(owner, "Custom text (max 10 characters, optional):");
             try {
                 ctx.iconGeneratorService.generateCustom(ctx.serverDir, bg, text, customText);
                 log("Generated custom server-icon.png.");
@@ -108,7 +146,6 @@ public class UtilitiesDialog extends JDialog {
     private JPanel buildZipTab() {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setOpaque(false);
-        panel.setBackground(StellarTheme.BG);
         DefaultListModel<String> model = new DefaultListModel<>();
         ctx.serverPackZipService.defaultCandidates(ctx.serverDir).forEach(model::addElement);
         JList<String> list = new JList<>(model);
@@ -168,7 +205,7 @@ public class UtilitiesDialog extends JDialog {
         panel.add(purgeButton);
 
         purgeButton.addActionListener(e -> {
-            int confirm = JOptionPane.showConfirmDialog(this,
+            int confirm = JOptionPane.showConfirmDialog(SwingUtilities.getWindowAncestor(this),
                     "This deletes the installed server jar, modloader libraries, and cached "
                             + "modloader/Java downloads for this server — the next Launch will need to "
                             + "re-download and reinstall everything, which can take a while. "

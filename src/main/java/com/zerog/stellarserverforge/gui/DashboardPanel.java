@@ -31,7 +31,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class DashboardPanel extends JPanel {
 
     private final AppContext ctx;
-    private final Runnable onReenterSettings;
+    private final Runnable onOpenSettingsScreen;
+    private final Runnable onOpenUtilitiesScreen;
 
     private ServerSettings settings;
     private final ServerProcessRunner runner;
@@ -48,13 +49,6 @@ public class DashboardPanel extends JPanel {
 
     private final StellarButton launchButton = new StellarButton("Launch server", StellarButton.Variant.PRIMARY);
     private final StellarButton stopButton = new StellarButton("Stop server", StellarButton.Variant.DANGER);
-    private final StellarButton settingsButton = new StellarButton("Re-run setup wizard", StellarButton.Variant.SECONDARY);
-    private final StellarButton ramButton = new StellarButton("Change RAM", StellarButton.Variant.SECONDARY);
-    private final StellarButton javaOverrideButton = new StellarButton("Cycle Java mode", StellarButton.Variant.SECONDARY);
-    private final StellarButton modLoaderVersionButton = new StellarButton("Change modloader version", StellarButton.Variant.SECONDARY);
-    private final StellarButton portButton = new StellarButton("Change port", StellarButton.Variant.SECONDARY);
-    private final StellarButton upnpButton = new StellarButton("UPnP", StellarButton.Variant.SECONDARY);
-    private final StellarButton firewallButton = new StellarButton("Check firewall", StellarButton.Variant.SECONDARY);
     private final StellarButton modsButton = new StellarButton("Mods", StellarButton.Variant.SECONDARY);
     private final StellarButton utilitiesButton = new StellarButton("Utilities", StellarButton.Variant.SECONDARY);
     private final StellarButton curseForgeButton = new StellarButton("Import CurseForge profile", StellarButton.Variant.SECONDARY);
@@ -66,10 +60,12 @@ public class DashboardPanel extends JPanel {
     private volatile boolean stopRequested;
     private int restartCount;
 
-    public DashboardPanel(AppContext ctx, ServerSettings settings, Runnable onReenterSettings) {
+    public DashboardPanel(AppContext ctx, ServerSettings settings, Runnable onOpenSettingsScreen,
+                           Runnable onOpenUtilitiesScreen) {
         this.ctx = ctx;
         this.settings = settings;
-        this.onReenterSettings = onReenterSettings;
+        this.onOpenSettingsScreen = onOpenSettingsScreen;
+        this.onOpenUtilitiesScreen = onOpenUtilitiesScreen;
         this.runner = new ServerProcessRunner(ctx.serverDir);
 
         setOpaque(false);
@@ -113,9 +109,9 @@ public class DashboardPanel extends JPanel {
         links.add(new com.zerog.stellarserverforge.gui.theme.StellarNavLink(
                 "Mods", false, this::onOpenMods));
         links.add(new com.zerog.stellarserverforge.gui.theme.StellarNavLink(
-                "Utilities", false, this::onOpenUtilities));
+                "Utilities", false, onOpenUtilitiesScreen));
         links.add(new com.zerog.stellarserverforge.gui.theme.StellarNavLink(
-                "Settings", false, onReenterSettings));
+                "Settings", false, onOpenSettingsScreen));
 
         JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         left.setOpaque(false);
@@ -224,32 +220,18 @@ public class DashboardPanel extends JPanel {
 
         JPanel toolRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         toolRow.setOpaque(false);
-        toolRow.add(ramButton);
-        toolRow.add(javaOverrideButton);
-        toolRow.add(modLoaderVersionButton);
-        toolRow.add(portButton);
-        toolRow.add(upnpButton);
-        toolRow.add(firewallButton);
         toolRow.add(modsButton);
         toolRow.add(zeroGModsButton);
         toolRow.add(utilitiesButton);
         toolRow.add(curseForgeButton);
-        toolRow.add(settingsButton);
 
         card.add(primaryRow, BorderLayout.NORTH);
         card.add(toolRow, BorderLayout.SOUTH);
 
         launchButton.addActionListener(this::onLaunch);
         stopButton.addActionListener(this::onStop);
-        settingsButton.addActionListener(e -> onReenterSettings.run());
-        ramButton.addActionListener(e -> onChangeRam());
-        javaOverrideButton.addActionListener(e -> onCycleJavaOverride());
-        modLoaderVersionButton.addActionListener(e -> onChangeModLoaderVersion());
-        portButton.addActionListener(e -> onChangePort());
-        upnpButton.addActionListener(e -> onOpenUpnp());
-        firewallButton.addActionListener(e -> onCheckFirewall());
         modsButton.addActionListener(e -> onOpenMods());
-        utilitiesButton.addActionListener(e -> onOpenUtilities());
+        utilitiesButton.addActionListener(e -> onOpenUtilitiesScreen.run());
         curseForgeButton.addActionListener(e -> onOpenCurseForgeImport());
         zeroGModsButton.addActionListener(e -> onOpenZeroGMods());
         return card;
@@ -264,10 +246,6 @@ public class DashboardPanel extends JPanel {
         new ModsDialog(ownerFrame(), ctx, settings).setVisible(true);
     }
 
-    private void onOpenUtilities() {
-        new UtilitiesDialog(ownerFrame(), ctx, settings).setVisible(true);
-    }
-
     private void onOpenZeroGMods() {
         new ZeroGModsDialog(ownerFrame(), ctx, settings).setVisible(true);
     }
@@ -280,49 +258,19 @@ public class DashboardPanel extends JPanel {
         }).setVisible(true);
     }
 
-    private static void themeSpinner(JSpinner spinner) {
-        spinner.setFont(StellarTheme.FONT_BODY);
-        spinner.setBorder(BorderFactory.createLineBorder(StellarTheme.PANEL_BORDER));
-        JComponent editor = spinner.getEditor();
-        if (editor instanceof JSpinner.DefaultEditor defaultEditor) {
-            defaultEditor.getTextField().setBackground(StellarTheme.VOID_BLACK);
-            defaultEditor.getTextField().setForeground(StellarTheme.STAR_CYAN);
-            defaultEditor.getTextField().setCaretColor(StellarTheme.STAR_CYAN);
-            defaultEditor.getTextField().setBorder(BorderFactory.createEmptyBorder(2, 6, 2, 6));
-        }
-    }
-
-    private void onChangePort() {
-        JSpinner spinner = new JSpinner(new SpinnerNumberModel(Math.max(settings.getPort(), 10000), 10000, 65535, 1));
-        themeSpinner(spinner);
-        int result = JOptionPane.showConfirmDialog(this, spinner, "Server Port (>= 10000)",
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-        if (result != JOptionPane.OK_OPTION) {
-            return;
-        }
-        int newPort = (Integer) spinner.getValue();
-        settings.setPort(newPort);
-        persistSettings();
-        try {
-            ctx.serverPropertiesService.ensureValidAndSynced(newPort);
-        } catch (java.io.IOException ex) {
-            JOptionPane.showMessageDialog(this, "Could not sync server.properties: " + ex.getMessage(),
-                    "Sync failed", JOptionPane.WARNING_MESSAGE);
-        }
-        refreshLabels();
-    }
-
-    private void onOpenUpnp() {
+    /** Package-visible so SettingsPanel (a sibling screen, not a child of this one) can reuse the
+     * same UPnP dialog flow instead of duplicating it. */
+    void onOpenUpnp() {
         new UpnpDialog(ownerFrame(), ctx, settings, this::refreshLabels).setVisible(true);
     }
 
-    private void onCheckFirewall() {
+    /** Package-visible for the same reason as {@link #onOpenUpnp()} — reused from SettingsPanel. */
+    void onCheckFirewall() {
         if (lastResolvedJavaCommand == null) {
             JOptionPane.showMessageDialog(this, "Launch the server at least once first, so the Java executable "
                     + "being used is known.", "Firewall check", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
-        firewallButton.setEnabled(false);
         new SwingWorker<com.zerog.stellarserverforge.net_port.FirewallCheckService.Result, Void>() {
             @Override
             protected com.zerog.stellarserverforge.net_port.FirewallCheckService.Result doInBackground() {
@@ -331,7 +279,6 @@ public class DashboardPanel extends JPanel {
 
             @Override
             protected void done() {
-                firewallButton.setEnabled(true);
                 try {
                     var result = get();
                     JOptionPane.showMessageDialog(DashboardPanel.this, result.message(), "Firewall check",
@@ -344,31 +291,9 @@ public class DashboardPanel extends JPanel {
         }.execute();
     }
 
-    private void onChangeRam() {
-        JSpinner spinner = new JSpinner(new SpinnerNumberModel(settings.getMaxRamGigs(), 1, 128, 1));
-        themeSpinner(spinner);
-        int result = JOptionPane.showConfirmDialog(this, spinner, "Maximum RAM (GB)",
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-        if (result == JOptionPane.OK_OPTION) {
-            settings.setMaxRamGigs((Integer) spinner.getValue());
-            persistSettings();
-            refreshLabels();
-        }
-    }
-
-    private void onChangeModLoaderVersion() {
+    /** Package-visible for the same reason as {@link #onOpenUpnp()} — reused from SettingsPanel. */
+    void onChangeModLoaderVersion() {
         new ModLoaderVersionDialog(ownerFrame(), ctx, settings, this::refreshLabels).setVisible(true);
-    }
-
-    private void onCycleJavaOverride() {
-        JavaOverrideMode next = switch (settings.getJavaOverrideMode()) {
-            case AUTOMATIC -> JavaOverrideMode.SYSTEM_PATH;
-            case SYSTEM_PATH -> JavaOverrideMode.FORCE_MANAGED;
-            case FORCE_MANAGED -> JavaOverrideMode.AUTOMATIC;
-        };
-        settings.setJavaOverrideMode(next);
-        persistSettings();
-        refreshLabels();
     }
 
     private void persistSettings() {
@@ -380,7 +305,9 @@ public class DashboardPanel extends JPanel {
         }
     }
 
-    private void refreshLabels() {
+    /** Package-visible so MainFrame can pass this as the "settings changed elsewhere" callback to
+     * SettingsPanel, which mutates the same ServerSettings instance this panel displays. */
+    void refreshLabels() {
         mcVersionLabel.setText(settings.getMinecraftVersion());
         modLoaderLabel.setText(settings.getModLoader() == ModLoader.VANILLA
                 ? "VANILLA"
@@ -393,7 +320,6 @@ public class DashboardPanel extends JPanel {
             case SYSTEM_PATH -> "System PATH";
             case FORCE_MANAGED -> "Forced managed";
         });
-        modLoaderVersionButton.setEnabled(settings.getModLoader() != ModLoader.VANILLA);
     }
 
     private void appendConsole(String line) {
@@ -426,7 +352,6 @@ public class DashboardPanel extends JPanel {
 
     private void onLaunch(ActionEvent e) {
         launchButton.setEnabled(false);
-        settingsButton.setEnabled(false);
         stopButton.setEnabled(true);
         console.setText("");
         restartCount = 0;
@@ -451,7 +376,6 @@ public class DashboardPanel extends JPanel {
             protected void done() {
                 if (!runner.isRunning()) {
                     launchButton.setEnabled(true);
-                    settingsButton.setEnabled(true);
                     stopButton.setEnabled(false);
                 }
             }
@@ -537,7 +461,6 @@ public class DashboardPanel extends JPanel {
         setStatus("Idle");
         SwingUtilities.invokeLater(() -> {
             launchButton.setEnabled(true);
-            settingsButton.setEnabled(true);
             stopButton.setEnabled(false);
         });
     }

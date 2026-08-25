@@ -15,6 +15,8 @@ public class MainFrame extends JFrame {
 
     private static final String CARD_WIZARD = "wizard";
     private static final String CARD_DASHBOARD = "dashboard";
+    private static final String CARD_SETTINGS = "settings";
+    private static final String CARD_UTILITIES = "utilities";
 
     private final AppContext ctx;
     private final CardLayout cardLayout = new CardLayout();
@@ -22,6 +24,9 @@ public class MainFrame extends JFrame {
 
     private DashboardPanel dashboardPanel;
     private SetupWizardPanel wizardPanel;
+    private SettingsPanel settingsPanel;
+    private UtilitiesPanel utilitiesPanel;
+    private ServerSettings settings;
 
     public MainFrame() {
         super("StellarServerForge");
@@ -41,8 +46,8 @@ public class MainFrame extends JFrame {
 
         if (ctx.settingsService.exists()) {
             try {
-                ServerSettings settings = ctx.settingsService.load();
-                showDashboard(settings);
+                ServerSettings loaded = ctx.settingsService.load();
+                showDashboard(loaded);
             } catch (IOException e) {
                 JOptionPane.showMessageDialog(this,
                         "Could not read settings.json (" + e.getMessage() + "). Starting setup again.",
@@ -85,8 +90,9 @@ public class MainFrame extends JFrame {
     }
 
     private void showDashboard(ServerSettings settings) {
+        this.settings = settings;
         if (dashboardPanel == null) {
-            dashboardPanel = new DashboardPanel(ctx, settings, this::onReenterSettings);
+            dashboardPanel = new DashboardPanel(ctx, settings, this::showSettings, this::showUtilities);
             cards.add(dashboardPanel, CARD_DASHBOARD);
         } else {
             dashboardPanel.updateSettings(settings);
@@ -94,7 +100,39 @@ public class MainFrame extends JFrame {
         cardLayout.show(cards, CARD_DASHBOARD);
     }
 
-    private void onReenterSettings() {
+    /** Reached from the dashboard's "Settings" nav link — a real settings screen, not a re-run of
+     * the whole setup wizard. Rebuilt fresh each visit (cheap; mirrors the wizard's own
+     * rebuild-on-reentry pattern) so it always reflects the latest settings. */
+    private void showSettings() {
+        if (settingsPanel != null) {
+            cards.remove(settingsPanel);
+        }
+        settingsPanel = new SettingsPanel(ctx, settings, this::backToDashboard, this::onReenterWizard,
+                dashboardPanel::refreshLabels, dashboardPanel::onOpenUpnp, dashboardPanel::onCheckFirewall,
+                dashboardPanel::onChangeModLoaderVersion);
+        cards.add(settingsPanel, CARD_SETTINGS);
+        cardLayout.show(cards, CARD_SETTINGS);
+    }
+
+    /** Reached from the dashboard's "Utilities" nav link/toolbar button — an in-window screen
+     * instead of a separate modal dialog. */
+    private void showUtilities() {
+        if (utilitiesPanel != null) {
+            cards.remove(utilitiesPanel);
+        }
+        utilitiesPanel = new UtilitiesPanel(ctx, settings, this::backToDashboard);
+        cards.add(utilitiesPanel, CARD_UTILITIES);
+        cardLayout.show(cards, CARD_UTILITIES);
+    }
+
+    private void backToDashboard() {
+        dashboardPanel.refreshLabels();
+        cardLayout.show(cards, CARD_DASHBOARD);
+    }
+
+    /** The actual "start over" action — now reached via a button inside the Settings screen,
+     * rather than being what clicking "Settings" itself does. */
+    private void onReenterWizard() {
         cards.remove(wizardPanel);
         wizardPanel = new SetupWizardPanel(ctx, this::onSetupComplete);
         cards.add(wizardPanel, CARD_WIZARD);
