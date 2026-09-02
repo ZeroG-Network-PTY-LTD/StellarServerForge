@@ -12,6 +12,13 @@ on:
   push:
     branches: [main]
 
+# If several commits land on main in quick succession, cancel any build still running for an
+# older commit instead of letting every push finish its own release + Discord post — otherwise
+# a burst of pushes spams the channel with one embed per commit.
+concurrency:
+  group: build-and-notify-main
+  cancel-in-progress: true
+
 permissions:
   contents: write # needed to create the GitHub Release and upload its asset
 
