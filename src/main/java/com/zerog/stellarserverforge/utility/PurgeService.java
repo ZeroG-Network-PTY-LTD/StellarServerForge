@@ -30,8 +30,12 @@ public class PurgeService {
         if (!Files.isDirectory(dir)) {
             return;
         }
+        Path ownJar = com.zerog.stellarserverforge.util.OwnJar.path();
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir, glob)) {
             for (Path p : stream) {
+                if (ownJar != null && p.toAbsolutePath().normalize().equals(ownJar)) {
+                    continue;
+                }
                 Files.deleteIfExists(p);
             }
         }

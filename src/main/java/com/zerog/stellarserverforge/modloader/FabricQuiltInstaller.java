@@ -159,8 +159,12 @@ public class FabricQuiltInstaller {
     private void cleanExisting() throws IOException {
         deleteRecursively(serverDir.resolve(".fabric"));
         deleteRecursively(serverDir.resolve("libraries"));
+        Path ownJar = com.zerog.stellarserverforge.util.OwnJar.path();
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(serverDir, "*.jar")) {
             for (Path p : stream) {
+                if (ownJar != null && p.toAbsolutePath().normalize().equals(ownJar)) {
+                    continue;
+                }
                 Files.deleteIfExists(p);
             }
         }
