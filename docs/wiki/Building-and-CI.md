@@ -30,6 +30,28 @@ Key dependencies: `jackson-databind` (JSON), `weupnp` (UPnP), `night-config-toml
 Skip a push's CI run by including `[skip ci]` anywhere in the commit message — useful for
 metadata-only or non-code changes (catalog tweaks, docs) that don't warrant a full rebuild.
 
+### The push trigger is unreliable — always confirm with a manual dispatch
+
+The `on: push` trigger on this repo (and others in the `ZeroG-Network-PTY-LTD` org, e.g.
+NeoEssentials) intermittently doesn't fire at all — commits land on `main` normally, but no
+`github-actions` check suite or run gets created for them, with no error surfaced anywhere. Org
+and repo Actions permissions, branch protection, rulesets, token scopes, and SSO enforcement have
+all been checked and ruled out; the cause sits somewhere in GitHub's push-event dispatch itself.
+
+The workflow also has a `workflow_dispatch` trigger for exactly this reason. Treat a push as
+**not** having built until you've confirmed it, either by checking the Actions tab/`gh run list`,
+or — the reliable path — firing it manually and watching it:
+
+```
+gh workflow run "Build and notify Discord" --ref main
+gh run watch <run-id-from-the-command-above> --exit-status
+```
+
+Do this after every code-changing push (skip it for `[skip ci]` docs/metadata-only commits, same
+as above). Stay on the `ZeroG-Network` gh account (`gh auth switch -u ZeroG-Network`) for pushes
+and for firing/watching runs — it's the account with bypass permission and the one CI has
+historically worked under.
+
 ### Separate: raw GitHub activity in Discord
 
 Commit/PR/issue activity is mirrored into Discord separately, via a **native GitHub repo webhook**
