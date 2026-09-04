@@ -11,6 +11,10 @@ name: Build and notify Discord
 on:
   push:
     branches: [main]
+  # The push trigger above is unreliable on this org's repos (mirrors the same issue seen on
+  # NeoEssentials) — workflow_dispatch lets a push be followed by manually firing the build
+  # (`gh workflow run "Build and notify Discord" --ref main`) instead of hoping push fires it.
+  workflow_dispatch: {}
 
 # If several commits land on main in quick succession, cancel any build still running for an
 # older commit instead of letting every push finish its own release + Discord post — otherwise
