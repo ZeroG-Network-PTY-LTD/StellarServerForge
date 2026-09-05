@@ -119,8 +119,6 @@ public class DashboardPanel extends JPanel {
                 "Utilities", false, onOpenUtilitiesScreen));
         links.add(new com.zerog.stellarserverforge.gui.theme.StellarNavLink(
                 "Settings", false, onOpenSettingsScreen));
-        links.add(new com.zerog.stellarserverforge.gui.theme.StellarNavLink(
-                "Changelog", false, this::onOpenChangelog));
 
         JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         left.setOpaque(false);
@@ -195,53 +193,37 @@ public class DashboardPanel extends JPanel {
     private JComponent buildLinkBar() {
         String repo = "https://github.com/ZeroG-Network-PTY-LTD/StellarServerForge";
 
-        JPanel wrap = new JPanel(new BorderLayout(0, StellarTheme.SPACE_3));
-        wrap.setOpaque(false);
-        wrap.add(bugReportLink(repo + "/issues/new"), BorderLayout.NORTH);
-
-        JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT, StellarTheme.SPACE_8, 0));
+        JPanel bar = new JPanel(new BorderLayout());
         bar.setOpaque(false);
-        wrap.add(bar, BorderLayout.SOUTH);
-        bar.add(new com.zerog.stellarserverforge.gui.theme.StellarLinkIcon(
+
+        JPanel leftIcons = new JPanel(new FlowLayout(FlowLayout.LEFT, StellarTheme.SPACE_8, 0));
+        leftIcons.setOpaque(false);
+        leftIcons.add(new com.zerog.stellarserverforge.gui.theme.StellarLinkIcon(
                 com.zerog.stellarserverforge.gui.theme.StellarLinkIcon.Kind.DISCORD, "Discord",
                 "https://discord.gg/dUGAQF2Mga"));
-        bar.add(new com.zerog.stellarserverforge.gui.theme.StellarLinkIcon(
+        leftIcons.add(new com.zerog.stellarserverforge.gui.theme.StellarLinkIcon(
                 com.zerog.stellarserverforge.gui.theme.StellarLinkIcon.Kind.GITHUB, "GitHub", repo));
-        bar.add(new com.zerog.stellarserverforge.gui.theme.StellarLinkIcon(
+        leftIcons.add(new com.zerog.stellarserverforge.gui.theme.StellarLinkIcon(
                 com.zerog.stellarserverforge.gui.theme.StellarLinkIcon.Kind.WIKI, "Wiki", repo + "/wiki"));
-        bar.add(new com.zerog.stellarserverforge.gui.theme.StellarLinkIcon(
-                com.zerog.stellarserverforge.gui.theme.StellarLinkIcon.Kind.ISSUES, "Issue tracker", repo + "/issues"));
-        bar.add(new com.zerog.stellarserverforge.gui.theme.StellarLinkIcon(
+        leftIcons.add(new com.zerog.stellarserverforge.gui.theme.StellarLinkIcon(
                 com.zerog.stellarserverforge.gui.theme.StellarLinkIcon.Kind.WEBSITE, "Website",
                 "https://zerognetwork.co.za"));
-        bar.add(new com.zerog.stellarserverforge.gui.theme.StellarLinkIcon(
+        leftIcons.add(new com.zerog.stellarserverforge.gui.theme.StellarLinkIcon(
                 com.zerog.stellarserverforge.gui.theme.StellarLinkIcon.Kind.KOFI, "Ko-fi",
                 "https://ko-fi.com/mrwhiteflamesyt"));
-        return wrap;
-    }
 
-    private JComponent bugReportLink(String url) {
-        JLabel link = new JLabel("<html><u>Found a bug? Report it here</u></html>");
-        link.setFont(StellarTheme.FONT_CAPTION);
-        link.setForeground(StellarTheme.TEXT_SECONDARY);
-        link.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        link.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
-                com.zerog.stellarserverforge.gui.theme.StellarLinkIcon.openUrl(url);
-            }
+        JPanel rightIcons = new JPanel(new FlowLayout(FlowLayout.RIGHT, StellarTheme.SPACE_8, 0));
+        rightIcons.setOpaque(false);
+        rightIcons.add(new com.zerog.stellarserverforge.gui.theme.StellarLinkIcon(
+                com.zerog.stellarserverforge.gui.theme.StellarLinkIcon.Kind.CHANGELOG, "Changelog",
+                this::onOpenChangelog));
+        rightIcons.add(new com.zerog.stellarserverforge.gui.theme.StellarLinkIcon(
+                com.zerog.stellarserverforge.gui.theme.StellarLinkIcon.Kind.BUG, "Found a bug? Report it here",
+                repo + "/issues/new"));
 
-            @Override
-            public void mouseEntered(java.awt.event.MouseEvent e) {
-                link.setForeground(StellarTheme.ACCENT_400);
-            }
-
-            @Override
-            public void mouseExited(java.awt.event.MouseEvent e) {
-                link.setForeground(StellarTheme.TEXT_SECONDARY);
-            }
-        });
-        return link;
+        bar.add(leftIcons, BorderLayout.WEST);
+        bar.add(rightIcons, BorderLayout.EAST);
+        return bar;
     }
 
     private JComponent buildFooter() {

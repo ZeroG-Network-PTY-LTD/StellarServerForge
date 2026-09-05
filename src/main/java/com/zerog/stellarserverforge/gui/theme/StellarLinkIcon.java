@@ -30,7 +30,7 @@ public class StellarLinkIcon extends JComponent {
     private static final int SIZE = 32;
     private static final int VIEWBOX = 24;
 
-    public enum Kind { DISCORD, GITHUB, KOFI, WIKI, ISSUES, WEBSITE }
+    public enum Kind { DISCORD, GITHUB, KOFI, WIKI, ISSUES, WEBSITE, CHANGELOG, BUG }
 
     // Simple Icons (CC0) path data, viewBox 0 0 24 24.
     private static final String DISCORD_PATH = "M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z";
@@ -45,6 +45,12 @@ public class StellarLinkIcon extends JComponent {
     private boolean hovered;
 
     public StellarLinkIcon(Kind kind, String tooltip, String url) {
+        this(kind, tooltip, () -> openUrl(url));
+    }
+
+    /** For icons whose click opens something other than a URL in the browser (e.g. an in-app
+     * dialog), rather than the system browser. */
+    public StellarLinkIcon(Kind kind, String tooltip, Runnable onClick) {
         this.kind = kind;
         setToolTipText(tooltip);
         setOpaque(false);
@@ -66,7 +72,7 @@ public class StellarLinkIcon extends JComponent {
 
             @Override
             public void mouseClicked(MouseEvent e) {
-                openUrl(url);
+                onClick.run();
             }
         });
     }
@@ -119,6 +125,8 @@ public class StellarLinkIcon extends JComponent {
             case WIKI -> paintWiki(g2, at);
             case ISSUES -> paintIssues(g2, at);
             case WEBSITE -> paintWebsite(g2, at);
+            case CHANGELOG -> paintChangelog(g2, at);
+            case BUG -> paintBug(g2, at);
         }
 
         g2.dispose();
@@ -150,6 +158,42 @@ public class StellarLinkIcon extends JComponent {
         g2.draw(at.createTransformedShape(outer));
         g2.draw(at.createTransformedShape(meridian));
         g2.draw(at.createTransformedShape(equator));
+    }
+
+    private void paintChangelog(Graphics2D g2, AffineTransform at) {
+        g2.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        Rectangle2D.Double sheet = new Rectangle2D.Double(4, 2.5, 16, 19);
+        g2.draw(at.createTransformedShape(roundedRect(sheet, 2)));
+        for (int i = 0; i < 3; i++) {
+            double y = 8 + i * 4.5;
+            g2.draw(at.createTransformedShape(new Line2D.Double(7, y, 17, y)));
+        }
+    }
+
+    /** A simple bug/ladybug glyph — body, head, antennae, and three pairs of legs — used to mark
+     * the "report a bug" link so it reads as a bug report at a glance, not a generic link icon. */
+    private void paintBug(Graphics2D g2, AffineTransform at) {
+        g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        Ellipse2D.Double body = new Ellipse2D.Double(7, 8.5, 10, 11.5);
+        Ellipse2D.Double head = new Ellipse2D.Double(9.5, 4.5, 5, 5);
+        Line2D.Double spine = new Line2D.Double(12, 8.5, 12, 20);
+        Line2D.Double antennaLeft = new Line2D.Double(10, 5, 8, 2);
+        Line2D.Double antennaRight = new Line2D.Double(14, 5, 16, 2);
+        Line2D.Double legTopLeft = new Line2D.Double(7.5, 11, 3, 9);
+        Line2D.Double legTopRight = new Line2D.Double(16.5, 11, 21, 9);
+        Line2D.Double legMidLeft = new Line2D.Double(7, 14.25, 2.5, 14.25);
+        Line2D.Double legMidRight = new Line2D.Double(17, 14.25, 21.5, 14.25);
+        Line2D.Double legBottomLeft = new Line2D.Double(7.5, 17.5, 3, 19.5);
+        Line2D.Double legBottomRight = new Line2D.Double(16.5, 17.5, 21, 19.5);
+
+        g2.draw(at.createTransformedShape(head));
+        g2.draw(at.createTransformedShape(body));
+        g2.draw(at.createTransformedShape(spine));
+        for (Line2D.Double leg : new Line2D.Double[] {
+                antennaLeft, antennaRight, legTopLeft, legTopRight, legMidLeft, legMidRight,
+                legBottomLeft, legBottomRight}) {
+            g2.draw(at.createTransformedShape(leg));
+        }
     }
 
     private static Path2D.Double roundedRect(Rectangle2D.Double r, double arc) {
