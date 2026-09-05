@@ -27,6 +27,31 @@ public class IconGeneratorService {
         save(serverDir, renderCustom(background, textColor, customText));
     }
 
+    /** Imports an arbitrary image file as the server icon — center-cropped to a square, then
+     * scaled to {@value #SIZE}x{@value #SIZE}, so users can use their own logo instead of a
+     * generated swatch. */
+    public void importFromFile(Path serverDir, Path imageFile) throws IOException {
+        BufferedImage source = ImageIO.read(imageFile.toFile());
+        if (source == null) {
+            throw new IOException(imageFile.getFileName() + " is not a readable image file.");
+        }
+        save(serverDir, renderFromImage(source));
+    }
+
+    private BufferedImage renderFromImage(BufferedImage source) {
+        int side = Math.min(source.getWidth(), source.getHeight());
+        int x = (source.getWidth() - side) / 2;
+        int y = (source.getHeight() - side) / 2;
+
+        BufferedImage image = new BufferedImage(SIZE, SIZE, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = image.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g.drawImage(source, 0, 0, SIZE, SIZE, x, y, x + side, y + side, null);
+        g.dispose();
+        return image;
+    }
+
     /** Renders the default icon in memory without writing anything — used for preview. */
     public BufferedImage renderDefault() {
         BufferedImage image = swatch(new Color(0x1E, 0x3A, 0x8A));

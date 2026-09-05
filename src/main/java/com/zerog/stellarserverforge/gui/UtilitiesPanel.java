@@ -5,10 +5,12 @@ import com.zerog.stellarserverforge.gui.theme.StellarLabels;
 import com.zerog.stellarserverforge.gui.theme.StellarPanel;
 import com.zerog.stellarserverforge.gui.theme.StellarTheme;
 import com.zerog.stellarserverforge.model.McVersion;
+import com.zerog.stellarserverforge.model.ModLoader;
 import com.zerog.stellarserverforge.model.ServerSettings;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -48,6 +50,16 @@ public class UtilitiesPanel extends JPanel {
         back.addActionListener(e -> onBack.run());
         header.add(back, BorderLayout.WEST);
         header.add(StellarLabels.title("Utilities"), BorderLayout.CENTER);
+
+        StellarButton openFolder = new StellarButton("Open server folder", StellarButton.Variant.SECONDARY);
+        openFolder.addActionListener(e -> {
+            try {
+                Desktop.getDesktop().open(ctx.serverDir.toFile());
+            } catch (IOException | UnsupportedOperationException ex) {
+                log("Could not open the server folder: " + ex.getMessage());
+            }
+        });
+        header.add(openFolder, BorderLayout.EAST);
         add(header, BorderLayout.NORTH);
 
         StellarPanel body = new StellarPanel(new BorderLayout(0, StellarTheme.SPACE_11));
@@ -83,7 +95,7 @@ public class UtilitiesPanel extends JPanel {
         JPanel logHeader = new JPanel(new BorderLayout());
         logHeader.setOpaque(false);
         logHeader.add(StellarLabels.kicker("OUTPUT"), BorderLayout.WEST);
-        StellarButton clearButton = new StellarButton("Clear", StellarButton.Variant.GHOST);
+        StellarButton clearButton = new StellarButton("Clear", StellarButton.Variant.SECONDARY);
         clearButton.addActionListener(e -> logArea.setText(""));
         JPanel clearWrap = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         clearWrap.setOpaque(false);
@@ -187,15 +199,19 @@ public class UtilitiesPanel extends JPanel {
 
         StellarButton defaultButton = new StellarButton("Generate default icon", StellarButton.Variant.PRIMARY);
         StellarButton customButton = new StellarButton("Design custom icon...", StellarButton.Variant.SECONDARY);
+        StellarButton importButton = new StellarButton("Import from file...", StellarButton.Variant.SECONDARY);
 
         JPanel buttonsColumn = new JPanel();
         buttonsColumn.setOpaque(false);
         buttonsColumn.setLayout(new BoxLayout(buttonsColumn, BoxLayout.Y_AXIS));
         defaultButton.setAlignmentX(Component.LEFT_ALIGNMENT);
         customButton.setAlignmentX(Component.LEFT_ALIGNMENT);
+        importButton.setAlignmentX(Component.LEFT_ALIGNMENT);
         buttonsColumn.add(defaultButton);
         buttonsColumn.add(Box.createVerticalStrut(StellarTheme.SPACE_8));
         buttonsColumn.add(customButton);
+        buttonsColumn.add(Box.createVerticalStrut(StellarTheme.SPACE_8));
+        buttonsColumn.add(importButton);
 
         JPanel previewAndButtons = new JPanel(new FlowLayout(FlowLayout.LEFT, StellarTheme.SPACE_17, 0));
         previewAndButtons.setOpaque(false);
@@ -219,6 +235,23 @@ public class UtilitiesPanel extends JPanel {
             log(message);
             refreshIconPreview();
         }).setVisible(true));
+
+        importButton.addActionListener(e -> {
+            JFileChooser chooser = new JFileChooser();
+            chooser.setDialogTitle("Choose an image for the server icon");
+            chooser.setFileFilter(new FileNameExtensionFilter("Image files", "png", "jpg", "jpeg", "bmp", "gif"));
+            if (chooser.showOpenDialog(ownerFrame()) != JFileChooser.APPROVE_OPTION) {
+                return;
+            }
+            Path chosen = chooser.getSelectedFile().toPath();
+            try {
+                ctx.iconGeneratorService.importFromFile(ctx.serverDir, chosen);
+                log("Imported " + chosen.getFileName() + " as server-icon.png.");
+                refreshIconPreview();
+            } catch (IOException ex) {
+                log("Failed to import icon: " + ex.getMessage());
+            }
+        });
 
         return card;
     }
@@ -272,8 +305,8 @@ public class UtilitiesPanel extends JPanel {
         content.add(listScroll);
         content.add(Box.createVerticalStrut(StellarTheme.SPACE_8));
 
-        StellarButton selectAll = new StellarButton("Select all", StellarButton.Variant.GHOST);
-        StellarButton selectNone = new StellarButton("Select none", StellarButton.Variant.GHOST);
+        StellarButton selectAll = new StellarButton("Select all", StellarButton.Variant.SECONDARY);
+        StellarButton selectNone = new StellarButton("Select none", StellarButton.Variant.SECONDARY);
         selectAll.addActionListener(e -> list.setSelectionInterval(0, model.size() - 1));
         selectNone.addActionListener(e -> list.clearSelection());
         content.add(row(selectAll, selectNone));
@@ -288,6 +321,15 @@ public class UtilitiesPanel extends JPanel {
             if (selected.isEmpty()) {
                 log("Select at least one item to include before exporting.");
                 return;
+            }
+            Path prospective = ctx.serverDir.resolve(nameField.getText().trim() + ".zip");
+            if (Files.exists(prospective)) {
+                int overwrite = JOptionPane.showConfirmDialog(ownerFrame(),
+                        prospective.getFileName() + " already exists — overwrite it?",
+                        "Overwrite file?", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+                if (overwrite != JOptionPane.YES_OPTION) {
+                    return;
+                }
             }
             try {
                 var zipPath = ctx.serverPackZipService.createZip(ctx.serverDir, selected, nameField.getText().trim());
@@ -308,8 +350,15 @@ public class UtilitiesPanel extends JPanel {
                 + "the installed loader's launch arguments are known."));
         content.add(Box.createVerticalStrut(StellarTheme.SPACE_11));
 
+        boolean supported = settings.getModLoader() == ModLoader.FORGE || settings.getModLoader() == ModLoader.NEOFORGE;
         StellarButton generateButton = new StellarButton("Generate run.sh / run.bat", StellarButton.Variant.PRIMARY);
+        generateButton.setEnabled(supported);
         content.add(row(generateButton));
+        if (!supported) {
+            content.add(Box.createVerticalStrut(StellarTheme.SPACE_8));
+            content.add(wrapText("Current modloader is " + settings.getModLoader()
+                    + " — run scripts are only generated for Forge/NeoForge installs."));
+        }
 
         generateButton.addActionListener(e -> {
             try {
@@ -333,7 +382,15 @@ public class UtilitiesPanel extends JPanel {
         content.add(Box.createVerticalStrut(StellarTheme.SPACE_11));
 
         StellarButton purgeButton = new StellarButton("Purge", StellarButton.Variant.DANGER);
-        content.add(row(purgeButton));
+        JLabel statusLabel = StellarLabels.muted("");
+        content.add(row(purgeButton, statusLabel));
+
+        Runnable refreshPurgeState = () -> {
+            boolean purgeable = hasPurgeableFiles();
+            purgeButton.setEnabled(purgeable);
+            statusLabel.setText(purgeable ? "" : "Nothing installed yet — nothing to purge.");
+        };
+        refreshPurgeState.run();
 
         purgeButton.addActionListener(e -> {
             int confirm = JOptionPane.showConfirmDialog(ownerFrame(),
@@ -348,10 +405,33 @@ public class UtilitiesPanel extends JPanel {
             try {
                 ctx.purgeService.purge(ctx.serverDir, ctx.cacheDir);
                 log("Purge complete.");
+                refreshPurgeState.run();
             } catch (IOException ex) {
                 log("Purge failed: " + ex.getMessage());
             }
         });
         return card;
+    }
+
+    /** Mirrors what {@code PurgeService.purge} actually targets, so the button can be disabled
+     * (with an explanatory message) instead of running a no-op delete pass and reporting "Purge
+     * complete" when nothing was ever installed. */
+    private boolean hasPurgeableFiles() {
+        try {
+            if (Files.isDirectory(ctx.serverDir)) {
+                try (var stream = Files.newDirectoryStream(ctx.serverDir, "*.jar")) {
+                    if (stream.iterator().hasNext()) {
+                        return true;
+                    }
+                }
+            }
+            if (Files.exists(ctx.serverDir.resolve("libraries")) || Files.exists(ctx.serverDir.resolve(".fabric"))) {
+                return true;
+            }
+            return Files.exists(ctx.cacheDir.resolve("installers")) || Files.exists(ctx.cacheDir.resolve("java"))
+                    || Files.exists(ctx.cacheDir.resolve("versions"));
+        } catch (IOException ex) {
+            return true; // Unknown state — don't hide the button on a filesystem error.
+        }
     }
 }

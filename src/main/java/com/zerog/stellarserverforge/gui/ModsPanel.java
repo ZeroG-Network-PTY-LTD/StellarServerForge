@@ -18,6 +18,8 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -35,6 +37,13 @@ public class ModsPanel extends JPanel {
     private final JLabel statusLabel = StellarLabels.muted(" ");
     private final JTextArea infoArea = new JTextArea(6, 50);
     private final StellarButton moveButton = new StellarButton("Move selected to CLIENTMODS", StellarButton.Variant.SECONDARY);
+    private final StellarButton viewToggleButton = new StellarButton("View CLIENTMODS", StellarButton.Variant.SECONDARY);
+    private final StellarButton openFolderButton = new StellarButton("Open folder", StellarButton.Variant.SECONDARY);
+    private final JTextField filterField = new JTextField(20);
+    private final List<ModEntry> masterEntries = new ArrayList<>();
+    private final java.util.Set<String> selectedFileNames = new java.util.LinkedHashSet<>();
+    private boolean viewingClientMods;
+    private boolean restoringSelection;
 
     public ModsPanel(AppContext ctx, ServerSettings settings, Runnable onBack) {
         this.ctx = ctx;
@@ -88,7 +97,24 @@ public class ModsPanel extends JPanel {
         actionsRow.add(scanClientButton);
         actionsRow.add(mcreatorButton);
         actionsRow.add(listButton);
+        actionsRow.add(viewToggleButton);
+        actionsRow.add(openFolderButton);
         top.add(actionsRow);
+        top.add(Box.createVerticalStrut(StellarTheme.SPACE_8));
+
+        JPanel filterRow = new JPanel(new BorderLayout(StellarTheme.SPACE_8, 0));
+        filterRow.setOpaque(false);
+        filterRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        filterRow.add(StellarLabels.body("Filter:"), BorderLayout.WEST);
+        filterField.setBackground(StellarTheme.FIELD_BG);
+        filterField.setForeground(StellarTheme.TEXT_PRIMARY);
+        filterField.setCaretColor(StellarTheme.ACCENT);
+        filterField.setFont(StellarTheme.FONT_BODY);
+        filterField.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(StellarTheme.NEUTRAL_800),
+                BorderFactory.createEmptyBorder(4, 8, 4, 8)));
+        filterRow.add(filterField, BorderLayout.CENTER);
+        top.add(filterRow);
         body.add(top, BorderLayout.NORTH);
 
         clientModsList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
@@ -103,6 +129,17 @@ public class ModsPanel extends JPanel {
                         index, isSelected, cellHasFocus);
                 setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
                 return c;
+            }
+        });
+        // Tracks selection by file name (not list index) so it survives the list being rebuilt —
+        // by filtering, or by a fresh scan/listing — instead of silently dropping selected mods.
+        clientModsList.addListSelectionListener(e -> {
+            if (restoringSelection || e.getValueIsAdjusting()) {
+                return;
+            }
+            selectedFileNames.clear();
+            for (ModEntry entry : clientModsList.getSelectedValuesList()) {
+                selectedFileNames.add(entry.fileName());
             }
         });
 
@@ -138,15 +175,129 @@ public class ModsPanel extends JPanel {
         scanClientButton.addActionListener(e -> scanClientMods());
         moveButton.addActionListener(e -> moveSelected());
         mcreatorButton.addActionListener(e -> scanMcreator());
-        listButton.addActionListener(e -> listModsFolder());
+        listButton.addActionListener(e -> loadFolder(modsDir(), false));
+        viewToggleButton.addActionListener(e -> {
+            boolean goingToClientMods = !viewingClientMods;
+            loadFolder(goingToClientMods ? clientModsDir() : modsDir(), goingToClientMods);
+        });
+        openFolderButton.addActionListener(e -> {
+            try {
+                Path dir = viewingClientMods ? clientModsDir() : modsDir();
+                Files.createDirectories(dir);
+                Desktop.getDesktop().open(dir.toFile());
+            } catch (IOException | UnsupportedOperationException ex) {
+                statusLabel.setText("Could not open the folder: " + ex.getMessage());
+            }
+        });
+        filterField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                applyFilter();
+            }
+
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                applyFilter();
+            }
+
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                applyFilter();
+            }
+        });
+
+        loadFolder(modsDir(), false);
     }
 
     private Path modsDir() {
         return ctx.serverDir.resolve("mods");
     }
 
-    private void scanClientMods() {
+    private Path clientModsDir() {
+        return ctx.serverDir.resolve("CLIENTMODS");
+    }
+
+    /** Replaces the full (unfiltered) set of entries currently backing the list — called after a
+     * fresh scan or folder listing, so any selection from a previous listing is discarded — then
+     * re-applies whatever filter text is already in the box. */
+    private void setEntries(List<ModEntry> entries) {
+        masterEntries.clear();
+        masterEntries.addAll(entries);
+        selectedFileNames.clear();
+        applyFilter();
+    }
+
+    /** Rebuilds the visible list from {@link #masterEntries} using the current filter text, then
+     * restores selection (by file name, from {@link #selectedFileNames}) for whichever previously
+     * selected mods are still visible — narrowing or widening the filter would otherwise silently
+     * clear the selection, since {@code DefaultListModel.clear()} resets it. */
+    private void applyFilter() {
+        String query = filterField.getText().trim().toLowerCase();
         clientModsModel.clear();
+        for (ModEntry entry : masterEntries) {
+            if (query.isEmpty() || entry.modId().toLowerCase().contains(query)
+                    || entry.fileName().toLowerCase().contains(query)) {
+                clientModsModel.addElement(entry);
+            }
+        }
+        restoringSelection = true;
+        try {
+            for (int i = 0; i < clientModsModel.size(); i++) {
+                if (selectedFileNames.contains(clientModsModel.get(i).fileName())) {
+                    clientModsList.addSelectionInterval(i, i);
+                }
+            }
+        } finally {
+            restoringSelection = false;
+        }
+    }
+
+    /** Lists the plain contents of a mods-style folder (mods/ or CLIENTMODS/) into the same list
+     * used for scan results, so filtering, sorting, and the move button work identically regardless
+     * of whether the list was populated by a scan or a plain listing. */
+    private void loadFolder(Path dir, boolean clientModsMode) {
+        viewingClientMods = clientModsMode;
+        moveButton.setText(clientModsMode ? "Move selected back to mods" : "Move selected to CLIENTMODS");
+        viewToggleButton.setText(clientModsMode ? "View mods folder" : "View CLIENTMODS");
+        filterField.setText("");
+
+        if (!Files.isDirectory(dir)) {
+            setEntries(List.of());
+            infoArea.setText("No " + dir.getFileName() + " folder found yet.");
+            return;
+        }
+
+        List<ModEntry> entries = new ArrayList<>();
+        long totalBytes = 0;
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
+            for (Path p : stream) {
+                if (Files.isDirectory(p)) {
+                    continue;
+                }
+                String name = p.getFileName().toString();
+                int dot = name.lastIndexOf('.');
+                String id = dot > 0 ? name.substring(0, dot) : name;
+                entries.add(new ModEntry(id, name));
+                totalBytes += Files.size(p);
+            }
+        } catch (IOException e) {
+            infoArea.setText("Error listing " + dir.getFileName() + "/: " + e.getMessage());
+            return;
+        }
+        entries.sort(Comparator.comparing(ModEntry::fileName, String.CASE_INSENSITIVE_ORDER));
+        setEntries(entries);
+        infoArea.setText(entries.size() + " file(s) in " + dir.getFileName() + "/, " + formatSize(totalBytes) + " total.");
+    }
+
+    private static String formatSize(long bytes) {
+        return String.format("%.1f MB", bytes / (1024.0 * 1024));
+    }
+
+    private void scanClientMods() {
+        viewingClientMods = false;
+        moveButton.setText("Move selected to CLIENTMODS");
+        viewToggleButton.setText("View CLIENTMODS");
+        setEntries(List.of());
         infoArea.setText("Scanning...");
         statusLabel.setText(" ");
 
@@ -169,7 +320,7 @@ public class ModsPanel extends JPanel {
                         ForgeNeoForgeModScanner.ScanResult result = new ForgeNeoForgeModScanner().scan(modsDir(), mcMajor, clientOnlyIds);
                         flagged = result.flaggedClientMods();
                         if (!result.essentialMods().isEmpty()) {
-                            moveFilesToClientMods(result.essentialMods());
+                            moveFiles(modsDir(), clientModsDir(), result.essentialMods());
                         }
                     }
                 } catch (IOException | InterruptedException e) {
@@ -187,7 +338,7 @@ public class ModsPanel extends JPanel {
                     infoArea.setText("Scan failed: " + error);
                     return;
                 }
-                flagged.forEach(clientModsModel::addElement);
+                setEntries(flagged);
                 StringBuilder sb = new StringBuilder();
                 sb.append("Found ").append(flagged.size()).append(" client-only mod(s) safe to move.");
                 if (!keptAsDependency.isEmpty()) {
@@ -205,22 +356,30 @@ public class ModsPanel extends JPanel {
             statusLabel.setText("Select one or more mods first.");
             return;
         }
+        List<String> fileNames = selected.stream().map(ModEntry::fileName).toList();
         try {
-            moveFilesToClientMods(selected.stream().map(ModEntry::fileName).toList());
-            selected.forEach(clientModsModel::removeElement);
-            statusLabel.setText("Moved " + selected.size() + " mod(s) to CLIENTMODS.");
+            if (viewingClientMods) {
+                moveFiles(clientModsDir(), modsDir(), fileNames);
+                statusLabel.setText("Moved " + selected.size() + " mod(s) back to mods/.");
+                loadFolder(clientModsDir(), true);
+            } else {
+                moveFiles(modsDir(), clientModsDir(), fileNames);
+                statusLabel.setText("Moved " + selected.size() + " mod(s) to CLIENTMODS.");
+                selected.forEach(clientModsModel::removeElement);
+                masterEntries.removeAll(selected);
+                fileNames.forEach(selectedFileNames::remove);
+            }
         } catch (IOException e) {
             statusLabel.setText("Move failed: " + e.getMessage());
         }
     }
 
-    private void moveFilesToClientMods(List<String> fileNames) throws IOException {
-        Path target = ctx.serverDir.resolve("CLIENTMODS");
-        Files.createDirectories(target);
+    private void moveFiles(Path from, Path to, List<String> fileNames) throws IOException {
+        Files.createDirectories(to);
         for (String fileName : fileNames) {
-            Path source = modsDir().resolve(fileName);
+            Path source = from.resolve(fileName);
             if (Files.exists(source)) {
-                Files.move(source, target.resolve(fileName), StandardCopyOption.REPLACE_EXISTING);
+                Files.move(source, to.resolve(fileName), StandardCopyOption.REPLACE_EXISTING);
             }
         }
     }
@@ -250,21 +409,4 @@ public class ModsPanel extends JPanel {
         }.execute();
     }
 
-    private void listModsFolder() {
-        clientModsModel.clear();
-        Path dir = modsDir();
-        if (!Files.isDirectory(dir)) {
-            infoArea.setText("No mods folder found.");
-            return;
-        }
-        StringBuilder sb = new StringBuilder("Contents of mods/:\n");
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
-            for (Path p : stream) {
-                sb.append(p.getFileName()).append('\n');
-            }
-        } catch (IOException e) {
-            sb.append("(error listing folder: ").append(e.getMessage()).append(")");
-        }
-        infoArea.setText(sb.toString());
-    }
 }

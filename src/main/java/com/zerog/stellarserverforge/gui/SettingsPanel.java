@@ -91,14 +91,28 @@ public class SettingsPanel extends JPanel {
         content.add(Box.createVerticalStrut(StellarTheme.SPACE_6));
         JSlider ramSlider = new JSlider(1, 128, settings.getMaxRamGigs());
         ramSlider.setOpaque(false);
+        ramSlider.setMajorTickSpacing(16);
+        ramSlider.setMinorTickSpacing(4);
+        ramSlider.setPaintTicks(true);
         JLabel ramValue = StellarLabels.value(settings.getMaxRamGigs() + " GB");
         JPanel ramRow = new JPanel(new BorderLayout(StellarTheme.SPACE_8, 0));
         ramRow.setOpaque(false);
         ramRow.add(ramSlider, BorderLayout.CENTER);
         ramRow.add(ramValue, BorderLayout.EAST);
         content.add(ramRow);
+
+        long systemRamGigs = detectSystemRamGigs();
+        JTextArea ramWarning = wrapCaption("");
+        content.add(ramWarning);
+        Runnable refreshRamWarning = () -> ramWarning.setText(
+                systemRamGigs > 0 && ramSlider.getValue() > systemRamGigs
+                        ? "This exceeds your system's " + systemRamGigs + " GB of RAM — the server may fail "
+                                + "to start, or your OS may become unstable while it's running."
+                        : "");
+        refreshRamWarning.run();
         ramSlider.addChangeListener(e -> {
             ramValue.setText(ramSlider.getValue() + " GB");
+            refreshRamWarning.run();
             if (!ramSlider.getValueIsAdjusting() && ramSlider.getValue() != settings.getMaxRamGigs()) {
                 settings.setMaxRamGigs(ramSlider.getValue());
                 persist("RAM set to " + ramSlider.getValue() + " GB.");
@@ -110,7 +124,13 @@ public class SettingsPanel extends JPanel {
         content.add(Box.createVerticalStrut(StellarTheme.SPACE_6));
         JTextField portField = themedField(String.valueOf(settings.getPort()));
         portField.setMaximumSize(new Dimension(120, portField.getPreferredSize().height));
-        content.add(portField);
+        StellarButton checkPortButton = new StellarButton("Check availability", StellarButton.Variant.SECONDARY);
+        JPanel portRow = new JPanel(new FlowLayout(FlowLayout.LEFT, StellarTheme.SPACE_8, 0));
+        portRow.setOpaque(false);
+        portRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        portRow.add(portField);
+        portRow.add(checkPortButton);
+        content.add(portRow);
         portField.addActionListener(e -> applyPort(portField));
         portField.addFocusListener(new FocusAdapter() {
             @Override
@@ -118,6 +138,7 @@ public class SettingsPanel extends JPanel {
                 applyPort(portField);
             }
         });
+        checkPortButton.addActionListener(e -> checkPortAvailability(portField));
         content.add(Box.createVerticalStrut(StellarTheme.SPACE_17));
 
         StellarButton reenterWizard = new StellarButton("Re-run setup wizard", StellarButton.Variant.SECONDARY);
@@ -225,7 +246,13 @@ public class SettingsPanel extends JPanel {
                 ? ServerSettings.DEFAULT_ZEROG_CATALOG_URL : settings.getZeroGCatalogUrl());
         catalogField.setAlignmentX(Component.LEFT_ALIGNMENT);
         catalogField.setMaximumSize(new Dimension(Integer.MAX_VALUE, catalogField.getPreferredSize().height));
-        content.add(catalogField);
+        JPanel catalogRow = new JPanel(new BorderLayout(StellarTheme.SPACE_8, 0));
+        catalogRow.setOpaque(false);
+        catalogRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        catalogRow.add(catalogField, BorderLayout.CENTER);
+        StellarButton resetCatalog = new StellarButton("Reset", StellarButton.Variant.SECONDARY);
+        catalogRow.add(resetCatalog, BorderLayout.EAST);
+        content.add(catalogRow);
         catalogField.addFocusListener(new FocusAdapter() {
             @Override
             public void focusLost(FocusEvent e) {
@@ -235,6 +262,11 @@ public class SettingsPanel extends JPanel {
                     persist("Catalog URL updated.");
                 }
             }
+        });
+        resetCatalog.addActionListener(e -> {
+            catalogField.setText(ServerSettings.DEFAULT_ZEROG_CATALOG_URL);
+            settings.setZeroGCatalogUrl("");
+            persist("Catalog URL reset to default.");
         });
         content.add(Box.createVerticalStrut(StellarTheme.SPACE_11));
 
@@ -247,7 +279,13 @@ public class SettingsPanel extends JPanel {
                 : settings.getZeroGProxyBaseUrl());
         proxyField.setAlignmentX(Component.LEFT_ALIGNMENT);
         proxyField.setMaximumSize(new Dimension(Integer.MAX_VALUE, proxyField.getPreferredSize().height));
-        content.add(proxyField);
+        JPanel proxyRow = new JPanel(new BorderLayout(StellarTheme.SPACE_8, 0));
+        proxyRow.setOpaque(false);
+        proxyRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        proxyRow.add(proxyField, BorderLayout.CENTER);
+        StellarButton resetProxy = new StellarButton("Reset", StellarButton.Variant.SECONDARY);
+        proxyRow.add(resetProxy, BorderLayout.EAST);
+        content.add(proxyRow);
         proxyField.addFocusListener(new FocusAdapter() {
             @Override
             public void focusLost(FocusEvent e) {
@@ -257,6 +295,11 @@ public class SettingsPanel extends JPanel {
                     persist("Proxy endpoint updated.");
                 }
             }
+        });
+        resetProxy.addActionListener(e -> {
+            proxyField.setText(com.zerog.stellarserverforge.zerogmods.CurseForgeInstallService.DEFAULT_PROXY_BASE_URL);
+            settings.setZeroGProxyBaseUrl("");
+            persist("Proxy endpoint reset to default.");
         });
 
         card.add(content, BorderLayout.NORTH);
@@ -286,6 +329,51 @@ public class SettingsPanel extends JPanel {
             case SYSTEM_PATH -> "System PATH";
             case FORCE_MANAGED -> "Force-managed";
         };
+    }
+
+    /** Best-effort total physical RAM, in GB, via the JDK's HotSpot-specific MXBean extension —
+     * returns -1 if unavailable (a non-HotSpot JVM) so callers can skip the warning rather than
+     * guess. */
+    private static long detectSystemRamGigs() {
+        try {
+            var os = java.lang.management.ManagementFactory.getOperatingSystemMXBean();
+            if (os instanceof com.sun.management.OperatingSystemMXBean sunOs) {
+                return sunOs.getTotalMemorySize() / (1024L * 1024 * 1024);
+            }
+        } catch (Throwable ignored) {
+            // Not available on this JVM — skip the warning rather than guess.
+        }
+        return -1;
+    }
+
+    private void checkPortAvailability(JTextField portField) {
+        int port;
+        try {
+            port = Integer.parseInt(portField.getText().trim());
+        } catch (NumberFormatException ex) {
+            setStatus("Port must be a number.", StellarTheme.STATUS_FAILED);
+            return;
+        }
+        boolean free = ctx.portConflictService.isPortFree(port);
+        setStatus(free
+                        ? "Port " + port + " looks free."
+                        : "Port " + port + " is currently in use (expected if the server is already running on it).",
+                free ? StellarTheme.STATUS_RUNNING : StellarTheme.STATUS_WARNING);
+    }
+
+    /** Wrapping caption text for inline warnings — a plain {@code JLabel} does not wrap. */
+    private JTextArea wrapCaption(String text) {
+        JTextArea area = new JTextArea(text);
+        area.setEditable(false);
+        area.setFocusable(false);
+        area.setOpaque(false);
+        area.setLineWrap(true);
+        area.setWrapStyleWord(true);
+        area.setFont(StellarTheme.FONT_CAPTION);
+        area.setForeground(StellarTheme.STATUS_WARNING);
+        area.setAlignmentX(Component.LEFT_ALIGNMENT);
+        area.setMaximumSize(new Dimension(320, Integer.MAX_VALUE));
+        return area;
     }
 
     private void applyPort(JTextField field) {
