@@ -28,3 +28,5 @@ also used as the GitHub Release notes for each CI build — see `docs/wiki/Build
   added a live filter box, a "View CLIENTMODS" toggle so mods can be moved back out again (not just
   in), and an "Open folder" button. Selection is now tracked by file name so filtering no longer
   silently clears which mods were selected.
+- Removed the dashboard footer's "Mods" and "Utilities" buttons — both screens were already
+  reachable from the nav bar, so the footer buttons were pure duplication.

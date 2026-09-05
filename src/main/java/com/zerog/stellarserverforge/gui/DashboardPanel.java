@@ -52,8 +52,6 @@ public class DashboardPanel extends JPanel {
     private final StellarButton launchButton = new StellarButton("Launch server", StellarButton.Variant.PRIMARY);
     private final StellarButton stopButton = new StellarButton("Stop server", StellarButton.Variant.DANGER);
     private final StellarButton restartButton = new StellarButton("Restart server", StellarButton.Variant.SECONDARY);
-    private final StellarButton modsButton = new StellarButton("Mods", StellarButton.Variant.SECONDARY);
-    private final StellarButton utilitiesButton = new StellarButton("Utilities", StellarButton.Variant.SECONDARY);
     private final StellarButton curseForgeButton = new StellarButton("Import CurseForge profile", StellarButton.Variant.SECONDARY);
     private final StellarButton zeroGModsButton = new StellarButton("ZeroG Network mods", StellarButton.Variant.SECONDARY);
     private final JCheckBox autoRestartCheckbox = new JCheckBox("Auto-restart on crash (up to 5x)");
@@ -242,9 +240,7 @@ public class DashboardPanel extends JPanel {
 
         JPanel toolRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         toolRow.setOpaque(false);
-        toolRow.add(modsButton);
         toolRow.add(zeroGModsButton);
-        toolRow.add(utilitiesButton);
         toolRow.add(curseForgeButton);
 
         card.add(primaryRow, BorderLayout.NORTH);
@@ -253,8 +249,6 @@ public class DashboardPanel extends JPanel {
         launchButton.addActionListener(this::onLaunch);
         stopButton.addActionListener(this::onStop);
         restartButton.addActionListener(this::onRestart);
-        modsButton.addActionListener(e -> onOpenModsScreen.run());
-        utilitiesButton.addActionListener(e -> onOpenUtilitiesScreen.run());
         curseForgeButton.addActionListener(e -> onOpenCurseForgeImport());
         zeroGModsButton.addActionListener(e -> onOpenZeroGModsScreen.run());
         return card;
