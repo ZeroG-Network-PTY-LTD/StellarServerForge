@@ -20,17 +20,28 @@ public class IconGeneratorService {
     private static final int SIZE = 64;
 
     public void generateDefault(Path serverDir) throws IOException {
-        BufferedImage image = swatch(new Color(0x1E, 0x3A, 0x8A));
-        drawCenteredText(image, "SSF", Color.YELLOW, false);
-        save(serverDir, image);
+        save(serverDir, renderDefault());
     }
 
     public void generateCustom(Path serverDir, Color background, Color textColor, String customText) throws IOException {
+        save(serverDir, renderCustom(background, textColor, customText));
+    }
+
+    /** Renders the default icon in memory without writing anything — used for preview. */
+    public BufferedImage renderDefault() {
+        BufferedImage image = swatch(new Color(0x1E, 0x3A, 0x8A));
+        drawCenteredText(image, "SSF", Color.YELLOW, false);
+        return image;
+    }
+
+    /** Renders a custom icon in memory without writing anything — used for live preview before
+     * the user commits to generating it. */
+    public BufferedImage renderCustom(Color background, Color textColor, String customText) {
         BufferedImage image = swatch(background);
         if (customText != null && !customText.isBlank()) {
             drawCenteredText(image, customText.length() > 10 ? customText.substring(0, 10) : customText, textColor, true);
         }
-        save(serverDir, image);
+        return image;
     }
 
     private BufferedImage swatch(Color background) {

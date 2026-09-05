@@ -7,9 +7,12 @@ import com.zerog.stellarserverforge.gui.theme.StellarTheme;
 import com.zerog.stellarserverforge.model.McVersion;
 import com.zerog.stellarserverforge.model.ServerSettings;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 /**
@@ -27,6 +30,7 @@ public class UtilitiesPanel extends JPanel {
     private final CardLayout tabCardLayout = new CardLayout();
     private final JPanel tabContent = new JPanel(tabCardLayout);
     private final JPanel tabStrip = new JPanel(new FlowLayout(FlowLayout.LEFT, StellarTheme.SPACE_6, 0));
+    private final JLabel iconPreview = new JLabel();
     private String activeTab = TAB_NAMES.get(0);
 
     public UtilitiesPanel(AppContext ctx, ServerSettings settings, Runnable onBack) {
@@ -65,6 +69,28 @@ public class UtilitiesPanel extends JPanel {
         tabArea.add(tabContent, BorderLayout.CENTER);
         body.add(tabArea, BorderLayout.NORTH);
 
+        body.add(buildLogArea(), BorderLayout.CENTER);
+
+        add(body, BorderLayout.CENTER);
+
+        refreshIconPreview();
+    }
+
+    private JComponent buildLogArea() {
+        JPanel wrap = new JPanel(new BorderLayout(0, StellarTheme.SPACE_6));
+        wrap.setOpaque(false);
+
+        JPanel logHeader = new JPanel(new BorderLayout());
+        logHeader.setOpaque(false);
+        logHeader.add(StellarLabels.kicker("OUTPUT"), BorderLayout.WEST);
+        StellarButton clearButton = new StellarButton("Clear", StellarButton.Variant.GHOST);
+        clearButton.addActionListener(e -> logArea.setText(""));
+        JPanel clearWrap = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        clearWrap.setOpaque(false);
+        clearWrap.add(clearButton);
+        logHeader.add(clearWrap, BorderLayout.EAST);
+        wrap.add(logHeader, BorderLayout.NORTH);
+
         logArea.setEditable(false);
         logArea.setBackground(StellarTheme.CONSOLE_BG);
         logArea.setForeground(StellarTheme.NEUTRAL_100);
@@ -73,9 +99,9 @@ public class UtilitiesPanel extends JPanel {
                 StellarTheme.SPACE_11, StellarTheme.SPACE_11));
         JScrollPane scroll = new JScrollPane(logArea);
         scroll.setBorder(BorderFactory.createEmptyBorder());
-        body.add(scroll, BorderLayout.CENTER);
-
-        add(body, BorderLayout.CENTER);
+        scroll.getViewport().setBackground(StellarTheme.CONSOLE_BG);
+        wrap.add(scroll, BorderLayout.CENTER);
+        return wrap;
     }
 
     private void rebuildTabStrip() {
@@ -100,52 +126,136 @@ public class UtilitiesPanel extends JPanel {
         logArea.setCaretPosition(logArea.getDocument().getLength());
     }
 
-    private JPanel tabPanel() {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+    /** A card with a kicker heading and vertically-stacked content, used for every tab so they all
+     * share the same padding/spacing instead of each tab hand-rolling its own layout. */
+    private StellarPanel tabCard(String kicker) {
+        StellarPanel card = new StellarPanel(new BorderLayout());
+        card.setBorder(BorderFactory.createEmptyBorder(StellarTheme.SPACE_17, StellarTheme.SPACE_17,
+                StellarTheme.SPACE_17, StellarTheme.SPACE_17));
+        JPanel content = new JPanel();
+        content.setOpaque(false);
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+        content.add(StellarLabels.kicker(kicker));
+        content.add(Box.createVerticalStrut(StellarTheme.SPACE_11));
+        card.add(content, BorderLayout.NORTH);
+        return card;
+    }
+
+    private JComponent contentOf(StellarPanel card) {
+        return (JComponent) ((BorderLayout) card.getLayout()).getLayoutComponent(BorderLayout.NORTH);
+    }
+
+    /** Wrapping body text — a plain {@code JLabel} does not wrap, so long descriptive/warning copy
+     * (e.g. the purge warning) would otherwise silently run off the edge of the panel. */
+    private JTextArea wrapText(String text) {
+        JTextArea area = new JTextArea(text);
+        area.setEditable(false);
+        area.setFocusable(false);
+        area.setOpaque(false);
+        area.setLineWrap(true);
+        area.setWrapStyleWord(true);
+        area.setFont(StellarTheme.FONT_CAPTION);
+        area.setForeground(StellarTheme.TEXT_SECONDARY);
+        area.setAlignmentX(Component.LEFT_ALIGNMENT);
+        area.setMaximumSize(new Dimension(520, Integer.MAX_VALUE));
+        return area;
+    }
+
+    private JPanel row(Component... components) {
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, StellarTheme.SPACE_8, 0));
         panel.setOpaque(false);
+        panel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        for (Component c : components) {
+            panel.add(c);
+        }
         return panel;
     }
 
-    private JPanel buildIconTab() {
-        JPanel panel = tabPanel();
+    private JComponent buildIconTab() {
+        StellarPanel card = tabCard("SERVER ICON");
+        JComponent content = contentOf(card);
+
+        content.add(wrapText("Generates server-icon.png (64x64), shown in the multiplayer server list. "
+                + "If one already exists, it's kept as a numbered backup rather than overwritten."));
+        content.add(Box.createVerticalStrut(StellarTheme.SPACE_11));
+
+        iconPreview.setPreferredSize(new Dimension(96, 96));
+        iconPreview.setHorizontalAlignment(SwingConstants.CENTER);
+        iconPreview.setBorder(BorderFactory.createLineBorder(StellarTheme.NEUTRAL_800));
+        iconPreview.setForeground(StellarTheme.TEXT_MUTED);
+        iconPreview.setFont(StellarTheme.FONT_CAPTION);
+
         StellarButton defaultButton = new StellarButton("Generate default icon", StellarButton.Variant.PRIMARY);
-        StellarButton customButton = new StellarButton("Generate custom icon", StellarButton.Variant.SECONDARY);
-        panel.add(defaultButton);
-        panel.add(customButton);
+        StellarButton customButton = new StellarButton("Design custom icon...", StellarButton.Variant.SECONDARY);
+
+        JPanel buttonsColumn = new JPanel();
+        buttonsColumn.setOpaque(false);
+        buttonsColumn.setLayout(new BoxLayout(buttonsColumn, BoxLayout.Y_AXIS));
+        defaultButton.setAlignmentX(Component.LEFT_ALIGNMENT);
+        customButton.setAlignmentX(Component.LEFT_ALIGNMENT);
+        buttonsColumn.add(defaultButton);
+        buttonsColumn.add(Box.createVerticalStrut(StellarTheme.SPACE_8));
+        buttonsColumn.add(customButton);
+
+        JPanel previewAndButtons = new JPanel(new FlowLayout(FlowLayout.LEFT, StellarTheme.SPACE_17, 0));
+        previewAndButtons.setOpaque(false);
+        previewAndButtons.setAlignmentX(Component.LEFT_ALIGNMENT);
+        previewAndButtons.add(iconPreview);
+        previewAndButtons.add(buttonsColumn);
+        content.add(previewAndButtons);
 
         defaultButton.addActionListener(e -> {
             try {
                 ctx.iconGeneratorService.generateDefault(ctx.serverDir);
                 log("Generated default server-icon.png.");
+                refreshIconPreview();
             } catch (IOException ex) {
                 log("Failed to generate icon: " + ex.getMessage());
             }
         });
 
-        customButton.addActionListener(e -> {
-            Window owner = SwingUtilities.getWindowAncestor(this);
-            Color bg = JColorChooser.showDialog(owner, "Background Color", Color.BLUE);
-            if (bg == null) {
-                return;
-            }
-            Color text = JColorChooser.showDialog(owner, "Text Color", Color.YELLOW);
-            if (text == null) {
-                return;
-            }
-            String customText = JOptionPane.showInputDialog(owner, "Custom text (max 10 characters, optional):");
-            try {
-                ctx.iconGeneratorService.generateCustom(ctx.serverDir, bg, text, customText);
-                log("Generated custom server-icon.png.");
-            } catch (IOException ex) {
-                log("Failed to generate icon: " + ex.getMessage());
-            }
-        });
-        return panel;
+        customButton.addActionListener(e -> new IconDesignerDialog(ownerFrame(), ctx.iconGeneratorService,
+                ctx.serverDir, message -> {
+            log(message);
+            refreshIconPreview();
+        }).setVisible(true));
+
+        return card;
     }
 
-    private JPanel buildZipTab() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setOpaque(false);
+    private Frame ownerFrame() {
+        Window window = SwingUtilities.getWindowAncestor(this);
+        return window instanceof Frame ? (Frame) window : null;
+    }
+
+    private void refreshIconPreview() {
+        Path iconPath = ctx.serverDir.resolve("server-icon.png");
+        if (!Files.isRegularFile(iconPath)) {
+            iconPreview.setIcon(null);
+            iconPreview.setText("<html><center>No icon<br>yet</center></html>");
+            return;
+        }
+        try {
+            Image image = ImageIO.read(iconPath.toFile());
+            if (image == null) {
+                throw new IOException("unreadable image");
+            }
+            iconPreview.setText(null);
+            iconPreview.setIcon(new ImageIcon(image.getScaledInstance(96, 96, Image.SCALE_SMOOTH)));
+        } catch (IOException ex) {
+            iconPreview.setIcon(null);
+            iconPreview.setText("<html><center>Preview<br>unavailable</center></html>");
+        }
+    }
+
+    private JComponent buildZipTab() {
+        StellarPanel card = tabCard("SERVER PACK CONTENTS");
+        JComponent content = contentOf(card);
+
+        content.add(wrapText("Packages the selected files/folders into a distributable ZIP, alongside a short "
+                + "readme. Server jars, logs, and cache/library folders are never included."));
+        content.add(Box.createVerticalStrut(StellarTheme.SPACE_8));
+
         DefaultListModel<String> model = new DefaultListModel<>();
         ctx.serverPackZipService.defaultCandidates(ctx.serverDir).forEach(model::addElement);
         JList<String> list = new JList<>(model);
@@ -155,19 +265,30 @@ public class UtilitiesPanel extends JPanel {
         for (int i = 0; i < model.size(); i++) {
             list.addSelectionInterval(i, i);
         }
-        panel.add(new JScrollPane(list), BorderLayout.CENTER);
+        JScrollPane listScroll = new JScrollPane(list);
+        listScroll.setAlignmentX(Component.LEFT_ALIGNMENT);
+        listScroll.setPreferredSize(new Dimension(360, 140));
+        listScroll.setMaximumSize(new Dimension(520, 200));
+        content.add(listScroll);
+        content.add(Box.createVerticalStrut(StellarTheme.SPACE_8));
 
-        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        row.setOpaque(false);
+        StellarButton selectAll = new StellarButton("Select all", StellarButton.Variant.GHOST);
+        StellarButton selectNone = new StellarButton("Select none", StellarButton.Variant.GHOST);
+        selectAll.addActionListener(e -> list.setSelectionInterval(0, model.size() - 1));
+        selectNone.addActionListener(e -> list.clearSelection());
+        content.add(row(selectAll, selectNone));
+        content.add(Box.createVerticalStrut(StellarTheme.SPACE_11));
+
         JTextField nameField = new JTextField(settings.getMinecraftVersion() + "-server-pack", 20);
         StellarButton zipButton = new StellarButton("Export server pack", StellarButton.Variant.PRIMARY);
-        row.add(StellarLabels.body("File name:"));
-        row.add(nameField);
-        row.add(zipButton);
-        panel.add(row, BorderLayout.SOUTH);
+        content.add(row(StellarLabels.body("File name:"), nameField, zipButton));
 
         zipButton.addActionListener(e -> {
             List<String> selected = list.getSelectedValuesList();
+            if (selected.isEmpty()) {
+                log("Select at least one item to include before exporting.");
+                return;
+            }
             try {
                 var zipPath = ctx.serverPackZipService.createZip(ctx.serverDir, selected, nameField.getText().trim());
                 log("Created " + zipPath.getFileName());
@@ -175,14 +296,20 @@ public class UtilitiesPanel extends JPanel {
                 log("Failed to create ZIP: " + ex.getMessage());
             }
         });
-        return panel;
+        return card;
     }
 
-    private JPanel buildRunScriptsTab() {
-        JPanel panel = tabPanel();
+    private JComponent buildRunScriptsTab() {
+        StellarPanel card = tabCard("RUN SCRIPTS");
+        JComponent content = contentOf(card);
+
+        content.add(wrapText("Generates run.sh and run.bat next to the server jar, for Forge/NeoForge "
+                + "installs that use an @args-file launch line. Launch the server at least once first, so "
+                + "the installed loader's launch arguments are known."));
+        content.add(Box.createVerticalStrut(StellarTheme.SPACE_11));
+
         StellarButton generateButton = new StellarButton("Generate run.sh / run.bat", StellarButton.Variant.PRIMARY);
-        panel.add(generateButton);
-        panel.add(StellarLabels.muted("(Forge/NeoForge only; launch the server at least once first.)"));
+        content.add(row(generateButton));
 
         generateButton.addActionListener(e -> {
             try {
@@ -193,19 +320,23 @@ public class UtilitiesPanel extends JPanel {
                 log("Failed to generate run scripts: " + ex.getMessage());
             }
         });
-        return panel;
+        return card;
     }
 
-    private JPanel buildPurgeTab() {
-        JPanel panel = tabPanel();
-        panel.add(StellarLabels.muted("Deletes the installed server jar, modloader libraries, cached installers, "
-                + "managed Java, and downloaded metadata — forces a full re-download/reinstall on the next Launch "
-                + "(never touches mods/config/world saves/settings)."));
+    private JComponent buildPurgeTab() {
+        StellarPanel card = tabCard("PURGE CACHE");
+        JComponent content = contentOf(card);
+
+        content.add(wrapText("Deletes the installed server jar, modloader libraries, cached installers, "
+                + "managed Java, and downloaded metadata — forces a full re-download/reinstall on the next "
+                + "Launch. Mods, config, world saves, and settings are never touched."));
+        content.add(Box.createVerticalStrut(StellarTheme.SPACE_11));
+
         StellarButton purgeButton = new StellarButton("Purge", StellarButton.Variant.DANGER);
-        panel.add(purgeButton);
+        content.add(row(purgeButton));
 
         purgeButton.addActionListener(e -> {
-            int confirm = JOptionPane.showConfirmDialog(SwingUtilities.getWindowAncestor(this),
+            int confirm = JOptionPane.showConfirmDialog(ownerFrame(),
                     "This deletes the installed server jar, modloader libraries, and cached "
                             + "modloader/Java downloads for this server — the next Launch will need to "
                             + "re-download and reinstall everything, which can take a while. "
@@ -221,6 +352,6 @@ public class UtilitiesPanel extends JPanel {
                 log("Purge failed: " + ex.getMessage());
             }
         });
-        return panel;
+        return card;
     }
 }
