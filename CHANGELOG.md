@@ -33,3 +33,13 @@ also used as the GitHub Release notes for each CI build — see `docs/wiki/Build
 - ZeroG Network mods tab: added a live filter box (selection-preserving, like the Mods tab),
   double-click to install, an "Installed this session" marker on installed entries, and an
   "Open mods folder" button.
+- Import CurseForge profile: the profile list now shows each profile's actual modpack name,
+  Minecraft version, and modloader+version (not just the raw folder name); a corrupted profile
+  shows a "details unavailable" note instead of being silently omitted. Fixed the import itself
+  freezing the whole dialog (it ran the file copy on the UI thread) — it now runs in the
+  background with a live status. Added double-click-to-import and a "Refresh" button.
+- Added "Import Modrinth modpack": picks a downloaded `.mrpack` file, shows its name/Minecraft
+  version/modloader/file count, then downloads its server-relevant files (checksum-verified) and
+  extracts its overrides into the server folder — the Modrinth equivalent of CurseForge profile
+  import, built around the portable `.mrpack` format since Modrinth has no local instance folder
+  to scan.

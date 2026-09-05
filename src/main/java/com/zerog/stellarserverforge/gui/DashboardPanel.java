@@ -53,6 +53,7 @@ public class DashboardPanel extends JPanel {
     private final StellarButton stopButton = new StellarButton("Stop server", StellarButton.Variant.DANGER);
     private final StellarButton restartButton = new StellarButton("Restart server", StellarButton.Variant.SECONDARY);
     private final StellarButton curseForgeButton = new StellarButton("Import CurseForge profile", StellarButton.Variant.SECONDARY);
+    private final StellarButton modrinthImportButton = new StellarButton("Import Modrinth modpack", StellarButton.Variant.SECONDARY);
     private final StellarButton zeroGModsButton = new StellarButton("ZeroG Network mods", StellarButton.Variant.SECONDARY);
     private final JCheckBox autoRestartCheckbox = new JCheckBox("Auto-restart on crash (up to 5x)");
 
@@ -242,6 +243,7 @@ public class DashboardPanel extends JPanel {
         toolRow.setOpaque(false);
         toolRow.add(zeroGModsButton);
         toolRow.add(curseForgeButton);
+        toolRow.add(modrinthImportButton);
 
         card.add(primaryRow, BorderLayout.NORTH);
         card.add(toolRow, BorderLayout.SOUTH);
@@ -250,6 +252,7 @@ public class DashboardPanel extends JPanel {
         stopButton.addActionListener(this::onStop);
         restartButton.addActionListener(this::onRestart);
         curseForgeButton.addActionListener(e -> onOpenCurseForgeImport());
+        modrinthImportButton.addActionListener(e -> onOpenModrinthImport());
         zeroGModsButton.addActionListener(e -> onOpenZeroGModsScreen.run());
         return card;
     }
@@ -266,6 +269,14 @@ public class DashboardPanel extends JPanel {
 
     private void onOpenCurseForgeImport() {
         new CurseForgeImportDialog(ownerFrame(), ctx, imported -> {
+            this.settings = imported;
+            persistSettings();
+            refreshLabels();
+        }).setVisible(true);
+    }
+
+    private void onOpenModrinthImport() {
+        new ModrinthImportDialog(ownerFrame(), ctx, imported -> {
             this.settings = imported;
             persistSettings();
             refreshLabels();

@@ -24,12 +24,22 @@ import java.util.function.Consumer;
  */
 public class CurseForgeImportDialog extends JDialog {
 
+    /** A profile paired with its eagerly-parsed metadata, when parsing succeeds — {@code parsed}
+     * is null for a profile whose {@code minecraftinstance.json} couldn't be read/validated, so
+     * the list can still show it (with a warning) rather than silently omitting it. */
+    private record DisplayEntry(CurseForgeImportService.ProfileInfo info, CurseForgeImportService.ParsedProfile parsed) {
+    }
+
     private final AppContext ctx;
     private final Consumer<ServerSettings> onImported;
 
-    private final DefaultListModel<CurseForgeImportService.ProfileInfo> model = new DefaultListModel<>();
-    private final JList<CurseForgeImportService.ProfileInfo> list = new JList<>(model);
+    private final DefaultListModel<DisplayEntry> model = new DefaultListModel<>();
+    private final JList<DisplayEntry> list = new JList<>(model);
     private final JLabel statusLabel = StellarLabels.muted(" ");
+    private final StellarButton browseButton = new StellarButton("Browse for instances folder", StellarButton.Variant.SECONDARY);
+    private final StellarButton refreshButton = new StellarButton("Refresh", StellarButton.Variant.SECONDARY);
+    private final StellarButton importButton = new StellarButton("Import selected", StellarButton.Variant.PRIMARY);
+    private Path lastRoot;
 
     public CurseForgeImportDialog(Frame owner, AppContext ctx, Consumer<ServerSettings> onImported) {
         super(owner, "Import CurseForge profile", true);
@@ -42,11 +52,13 @@ public class CurseForgeImportDialog extends JDialog {
 
         list.setBackground(StellarTheme.SURFACE);
         list.setForeground(StellarTheme.TEXT_PRIMARY);
-        list.setCellRenderer(new DefaultListCellRenderer() {
+        list.setCellRenderer(new ProfileRenderer());
+        list.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
-            public Component getListCellRendererComponent(JList<?> jList, Object value, int index, boolean isSelected, boolean cellHasFocus) {
-                CurseForgeImportService.ProfileInfo info = (CurseForgeImportService.ProfileInfo) value;
-                return super.getListCellRendererComponent(jList, info.folderName(), index, isSelected, cellHasFocus);
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (e.getClickCount() == 2 && list.getSelectedValue() != null) {
+                    importSelected();
+                }
             }
         });
         add(new JScrollPane(list), BorderLayout.CENTER);
@@ -58,15 +70,21 @@ public class CurseForgeImportDialog extends JDialog {
 
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         buttons.setOpaque(false);
-        StellarButton browseButton = new StellarButton("Browse for instances folder", StellarButton.Variant.SECONDARY);
-        StellarButton importButton = new StellarButton("Import selected", StellarButton.Variant.PRIMARY);
         StellarButton cancelButton = new StellarButton("Cancel", StellarButton.Variant.GHOST);
         buttons.add(browseButton);
+        buttons.add(refreshButton);
         buttons.add(importButton);
         buttons.add(cancelButton);
         add(buttons, BorderLayout.SOUTH);
 
         browseButton.addActionListener(e -> browseManually());
+        refreshButton.addActionListener(e -> {
+            if (lastRoot != null) {
+                loadProfiles(lastRoot);
+            } else {
+                statusLabel.setText("Nothing to refresh yet — browse for an instances folder first.");
+            }
+        });
         importButton.addActionListener(e -> importSelected());
         cancelButton.addActionListener(e -> dispose());
 
@@ -96,27 +114,44 @@ public class CurseForgeImportDialog extends JDialog {
     }
 
     private void loadProfiles(Path root) {
+        lastRoot = root;
         try {
             List<CurseForgeImportService.ProfileInfo> profiles = ctx.curseForgeImportService.listProfiles(root);
             model.clear();
-            profiles.forEach(model::addElement);
-            statusLabel.setText(profiles.isEmpty()
-                    ? "No profiles with a minecraftinstance.json were found under " + root
-                    : "Found " + profiles.size() + " profile(s) under " + root);
+            int unparseable = 0;
+            for (CurseForgeImportService.ProfileInfo info : profiles) {
+                CurseForgeImportService.ParsedProfile parsed;
+                try {
+                    parsed = ctx.curseForgeImportService.parseProfile(info.path());
+                } catch (IOException e) {
+                    // Shown in the list as "details unavailable" instead of failing the whole
+                    // listing — importSelected() re-parses (and surfaces the real error) anyway.
+                    parsed = null;
+                    unparseable++;
+                }
+                model.addElement(new DisplayEntry(info, parsed));
+            }
+            if (profiles.isEmpty()) {
+                statusLabel.setText("No profiles with a minecraftinstance.json were found under " + root);
+            } else {
+                statusLabel.setText("Found " + profiles.size() + " profile(s) under " + root
+                        + (unparseable > 0 ? " (" + unparseable + " with unreadable details)" : ""));
+            }
         } catch (IOException e) {
             statusLabel.setText("Could not read that folder: " + e.getMessage());
         }
     }
 
     private void importSelected() {
-        CurseForgeImportService.ProfileInfo selected = list.getSelectedValue();
+        DisplayEntry selected = list.getSelectedValue();
         if (selected == null) {
             statusLabel.setText("Select a profile first.");
             return;
         }
 
         try {
-            CurseForgeImportService.ParsedProfile parsed = ctx.curseForgeImportService.parseProfile(selected.path());
+            CurseForgeImportService.ParsedProfile parsed = selected.parsed() != null
+                    ? selected.parsed() : ctx.curseForgeImportService.parseProfile(selected.info().path());
 
             // Validate everything BEFORE the destructive step below (importInto replaces existing
             // mods/config/etc.) — a profile with an unrecognized modloader name or an unparseable
@@ -140,20 +175,89 @@ public class CurseForgeImportDialog extends JDialog {
                 return;
             }
 
-            ctx.curseForgeImportService.importInto(selected.path(), ctx.serverDir);
+            setControlsEnabled(false);
+            statusLabel.setText("Importing \"" + parsed.displayName() + "\"...");
 
-            ServerSettings settings = new ServerSettings();
-            settings.setMinecraftVersion(parsed.minecraftVersion());
-            settings.setModLoader(loader);
-            settings.setModLoaderVersion(parsed.modLoaderVersion());
-            settings.setJavaVersion(JavaVersionRules.resolve(mc).defaultVersion());
-            settings.setJavaOverrideMode(JavaOverrideMode.AUTOMATIC);
+            ModLoader finalLoader = loader;
+            McVersion finalMc = mc;
+            new SwingWorker<Void, Void>() {
+                IOException failure;
 
-            onImported.accept(settings);
-            statusLabel.setText("Imported successfully.");
-            dispose();
+                @Override
+                protected Void doInBackground() {
+                    try {
+                        ctx.curseForgeImportService.importInto(selected.info().path(), ctx.serverDir);
+                    } catch (IOException e) {
+                        failure = e;
+                    }
+                    return null;
+                }
+
+                @Override
+                protected void done() {
+                    setControlsEnabled(true);
+                    if (failure != null) {
+                        statusLabel.setText("Import failed: " + failure.getMessage());
+                        return;
+                    }
+                    ServerSettings settings = new ServerSettings();
+                    settings.setMinecraftVersion(parsed.minecraftVersion());
+                    settings.setModLoader(finalLoader);
+                    settings.setModLoaderVersion(parsed.modLoaderVersion());
+                    settings.setJavaVersion(JavaVersionRules.resolve(finalMc).defaultVersion());
+                    settings.setJavaOverrideMode(JavaOverrideMode.AUTOMATIC);
+
+                    onImported.accept(settings);
+                    statusLabel.setText("Imported successfully.");
+                    dispose();
+                }
+            }.execute();
         } catch (IOException e) {
             statusLabel.setText("Import failed: " + e.getMessage());
+        }
+    }
+
+    private void setControlsEnabled(boolean enabled) {
+        browseButton.setEnabled(enabled);
+        refreshButton.setEnabled(enabled);
+        importButton.setEnabled(enabled);
+        list.setEnabled(enabled);
+    }
+
+    private final class ProfileRenderer extends JPanel implements ListCellRenderer<DisplayEntry> {
+        private final JLabel nameLabel = StellarLabels.body("");
+        private final JLabel detailLabel = StellarLabels.muted("");
+        private final JLabel folderLabel = StellarLabels.muted("");
+
+        ProfileRenderer() {
+            setLayout(new BorderLayout(StellarTheme.SPACE_8, 0));
+            setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
+            JPanel textCol = new JPanel();
+            textCol.setOpaque(false);
+            textCol.setLayout(new BoxLayout(textCol, BoxLayout.Y_AXIS));
+            textCol.add(nameLabel);
+            textCol.add(detailLabel);
+            add(textCol, BorderLayout.CENTER);
+            folderLabel.setFont(StellarTheme.FONT_CAPTION);
+            add(folderLabel, BorderLayout.EAST);
+        }
+
+        @Override
+        public Component getListCellRendererComponent(JList<? extends DisplayEntry> jList, DisplayEntry entry,
+                                                        int index, boolean isSelected, boolean cellHasFocus) {
+            CurseForgeImportService.ParsedProfile parsed = entry.parsed();
+            if (parsed != null) {
+                nameLabel.setText(parsed.displayName());
+                detailLabel.setText(parsed.minecraftVersion() + " · " + parsed.modLoaderName() + " "
+                        + parsed.modLoaderVersion());
+            } else {
+                nameLabel.setText(entry.info().folderName());
+                detailLabel.setText("Details unavailable — profile may be corrupted or unsupported.");
+            }
+            folderLabel.setText(entry.info().folderName());
+            setBackground(isSelected ? StellarTheme.ACCENT_900 : StellarTheme.SURFACE);
+            setOpaque(true);
+            return this;
         }
     }
 }

@@ -6,6 +6,7 @@ import com.zerog.stellarserverforge.modloader.FabricQuiltInstaller;
 import com.zerog.stellarserverforge.modloader.ForgeNeoForgeInstaller;
 import com.zerog.stellarserverforge.modloader.ModLoaderMetadataService;
 import com.zerog.stellarserverforge.modloader.ModLoaderVersionResolver;
+import com.zerog.stellarserverforge.modrinth.ModrinthModpackImportService;
 import com.zerog.stellarserverforge.mojang.MojangManifestService;
 import com.zerog.stellarserverforge.mojang.VanillaInstallService;
 import com.zerog.stellarserverforge.net.IpLookupService;
@@ -48,6 +49,7 @@ public class AppContext {
     public final UpnpService upnpService;
     public final FirewallCheckService firewallCheckService;
     public final CurseForgeImportService curseForgeImportService;
+    public final ModrinthModpackImportService modrinthModpackImportService;
     public final IconGeneratorService iconGeneratorService;
     public final ServerPackZipService serverPackZipService;
     public final RunScriptGeneratorService runScriptGeneratorService;
@@ -76,6 +78,7 @@ public class AppContext {
         this.upnpService = new UpnpService();
         this.firewallCheckService = new FirewallCheckService();
         this.curseForgeImportService = new CurseForgeImportService();
+        this.modrinthModpackImportService = new ModrinthModpackImportService();
         this.iconGeneratorService = new IconGeneratorService();
         this.serverPackZipService = new ServerPackZipService();
         this.runScriptGeneratorService = new RunScriptGeneratorService();
