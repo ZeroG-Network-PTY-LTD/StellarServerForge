@@ -51,6 +51,7 @@ public class DashboardPanel extends JPanel {
 
     private final StellarButton launchButton = new StellarButton("Launch server", StellarButton.Variant.PRIMARY);
     private final StellarButton stopButton = new StellarButton("Stop server", StellarButton.Variant.DANGER);
+    private final StellarButton restartButton = new StellarButton("Restart server", StellarButton.Variant.SECONDARY);
     private final StellarButton modsButton = new StellarButton("Mods", StellarButton.Variant.SECONDARY);
     private final StellarButton utilitiesButton = new StellarButton("Utilities", StellarButton.Variant.SECONDARY);
     private final StellarButton curseForgeButton = new StellarButton("Import CurseForge profile", StellarButton.Variant.SECONDARY);
@@ -60,6 +61,7 @@ public class DashboardPanel extends JPanel {
     private final JTextArea console = new JTextArea();
     private volatile String lastResolvedJavaCommand;
     private volatile boolean stopRequested;
+    private volatile boolean restartRequested;
     private int restartCount;
 
     public DashboardPanel(AppContext ctx, ServerSettings settings, Runnable onOpenSettingsScreen,
@@ -92,6 +94,7 @@ public class DashboardPanel extends JPanel {
 
         refreshLabels();
         stopButton.setEnabled(false);
+        restartButton.setEnabled(false);
     }
 
     private JComponent buildNavBar() {
@@ -217,6 +220,7 @@ public class DashboardPanel extends JPanel {
         primaryRow.setOpaque(false);
         primaryRow.add(launchButton);
         primaryRow.add(stopButton);
+        primaryRow.add(restartButton);
         primaryRow.add(autoRestartCheckbox);
         autoRestartCheckbox.setOpaque(false);
         autoRestartCheckbox.setForeground(StellarTheme.TEXT_SECONDARY);
@@ -234,6 +238,7 @@ public class DashboardPanel extends JPanel {
 
         launchButton.addActionListener(this::onLaunch);
         stopButton.addActionListener(this::onStop);
+        restartButton.addActionListener(this::onRestart);
         modsButton.addActionListener(e -> onOpenModsScreen.run());
         utilitiesButton.addActionListener(e -> onOpenUtilitiesScreen.run());
         curseForgeButton.addActionListener(e -> onOpenCurseForgeImport());
@@ -350,9 +355,11 @@ public class DashboardPanel extends JPanel {
     private void onLaunch(ActionEvent e) {
         launchButton.setEnabled(false);
         stopButton.setEnabled(true);
+        restartButton.setEnabled(false);
         console.setText("");
         restartCount = 0;
         stopRequested = false;
+        restartRequested = false;
 
         new SwingWorker<Void, Void>() {
             @Override
@@ -374,6 +381,7 @@ public class DashboardPanel extends JPanel {
                 if (!runner.isRunning()) {
                     launchButton.setEnabled(true);
                     stopButton.setEnabled(false);
+                    restartButton.setEnabled(false);
                 }
             }
         }.execute();
@@ -434,12 +442,21 @@ public class DashboardPanel extends JPanel {
         while (true) {
             checkStopRequested();
             setStatus("Running");
-            SwingUtilities.invokeLater(() -> stopButton.setEnabled(true));
+            SwingUtilities.invokeLater(() -> {
+                stopButton.setEnabled(true);
+                restartButton.setEnabled(true);
+            });
             appendConsole("Launching server...");
             runner.start(java.command(), jvmArgs, tailArgs, this::appendConsole);
 
             int exitCode = runner.waitForExit();
             appendConsole("Server process exited with code " + exitCode + ".");
+
+            if (restartRequested) {
+                restartRequested = false;
+                appendConsole("Restarting server...");
+                continue;
+            }
 
             boolean graceful = LogDiagnostics.isGracefulStop(logFile);
             if (!graceful && !stopRequested && autoRestartCheckbox.isSelected() && restartCount < 5) {
@@ -459,6 +476,7 @@ public class DashboardPanel extends JPanel {
         SwingUtilities.invokeLater(() -> {
             launchButton.setEnabled(true);
             stopButton.setEnabled(false);
+            restartButton.setEnabled(false);
         });
     }
 
@@ -564,6 +582,23 @@ public class DashboardPanel extends JPanel {
                     // auto-restarting after a crash.
                     appendConsole("Stop requested — will cancel before the next step.");
                 }
+                return null;
+            }
+        }.execute();
+    }
+
+    private void onRestart(ActionEvent e) {
+        if (!runner.isRunning()) {
+            return;
+        }
+        restartRequested = true;
+        restartButton.setEnabled(false);
+        stopButton.setEnabled(false);
+        new SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() {
+                appendConsole("Restart requested — stopping server...");
+                runner.stop(30);
                 return null;
             }
         }.execute();
