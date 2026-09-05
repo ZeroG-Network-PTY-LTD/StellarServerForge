@@ -30,6 +30,17 @@ Key dependencies: `jackson-databind` (JSON), `weupnp` (UPnP), `night-config-toml
 Skip a push's CI run by including `[skip ci]` anywhere in the commit message — useful for
 metadata-only or non-code changes (catalog tweaks, docs) that don't warrant a full rebuild.
 
+### Changelog
+
+`CHANGELOG.md` (repo root) is the source of truth for what changed. It's bundled into the jar as a
+classpath resource (see the `sourceSets.main.resources` block in `build.gradle.kts`) and shown
+in-app via the dashboard's "Changelog" link (`ChangelogDialog`).
+
+Add a dated entry under a new `## YYYY-MM-DD` heading for any user-visible change **before**
+pushing it — the CI workflow's "Extract latest changelog entry" step reads the first dated section
+(skipping an empty `## Unreleased`) and folds it into that build's GitHub Release notes. A push
+with nothing added there just gets the generic "Automated build from commit ..." notes.
+
 ### The push trigger is unreliable — always confirm with a manual dispatch
 
 The `on: push` trigger on this repo (and others in the `ZeroG-Network-PTY-LTD` org, e.g.

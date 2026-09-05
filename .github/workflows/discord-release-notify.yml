@@ -64,14 +64,46 @@ jobs:
             echo "size_mb=$SIZE_MB"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Extract latest changelog entry
+        id: changelog
+        run: |
+          # Grabs everything under the first dated "## " heading in CHANGELOG.md (skipping the
+          # leading "## Unreleased" section if it's empty) so release notes track what's actually
+          # documented there, instead of a generic "automated build" message.
+          NOTES=$(awk '
+            /^## Unreleased/ { in_unreleased=1; next }
+            /^## / { if (in_unreleased && !collected) { in_unreleased=0 } else if (collected) { exit } }
+            in_unreleased && NF { print; collected=1; next }
+            !in_unreleased && /^## / { heading=1; next }
+            heading { print; collected=1 }
+          ' CHANGELOG.md)
+          if [ -z "$NOTES" ]; then
+            NOTES="No changelog entry recorded for this build."
+          fi
+          {
+            echo "notes<<CHANGELOG_EOF"
+            echo "$NOTES"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHORT_SHA: ${{ steps.package.outputs.short_sha }}
+          JAR_PATH: ${{ steps.package.outputs.jar_path }}
+          CHANGELOG_NOTES: ${{ steps.changelog.outputs.notes }}
         run: |
-          gh release create "build-${{ steps.package.outputs.short_sha }}" \
-            "${{ steps.package.outputs.jar_path }}" \
-            --title "StellarServerForge ${{ steps.package.outputs.short_sha }}" \
-            --notes "Automated build from commit ${{ steps.package.outputs.short_sha }} on main."
+          # CHANGELOG_NOTES is passed as an env var (not interpolated into the script text) so its
+          # content can't be interpreted as shell/workflow syntax.
+          {
+            echo "Automated build from commit ${SHORT_SHA} on main."
+            echo ""
+            echo "$CHANGELOG_NOTES"
+          } > release-notes.md
+          gh release create "build-${SHORT_SHA}" \
+            "${JAR_PATH}" \
+            --title "StellarServerForge ${SHORT_SHA}" \
+            --notes-file release-notes.md
 
       - name: Notify Discord (embed)
         env:

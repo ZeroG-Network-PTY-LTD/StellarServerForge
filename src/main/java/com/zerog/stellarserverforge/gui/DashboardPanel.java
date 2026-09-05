@@ -119,6 +119,8 @@ public class DashboardPanel extends JPanel {
                 "Utilities", false, onOpenUtilitiesScreen));
         links.add(new com.zerog.stellarserverforge.gui.theme.StellarNavLink(
                 "Settings", false, onOpenSettingsScreen));
+        links.add(new com.zerog.stellarserverforge.gui.theme.StellarNavLink(
+                "Changelog", false, this::onOpenChangelog));
 
         JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         left.setOpaque(false);
@@ -192,8 +194,14 @@ public class DashboardPanel extends JPanel {
 
     private JComponent buildLinkBar() {
         String repo = "https://github.com/ZeroG-Network-PTY-LTD/StellarServerForge";
+
+        JPanel wrap = new JPanel(new BorderLayout(0, StellarTheme.SPACE_3));
+        wrap.setOpaque(false);
+        wrap.add(bugReportLink(repo + "/issues/new"), BorderLayout.NORTH);
+
         JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT, StellarTheme.SPACE_8, 0));
         bar.setOpaque(false);
+        wrap.add(bar, BorderLayout.SOUTH);
         bar.add(new com.zerog.stellarserverforge.gui.theme.StellarLinkIcon(
                 com.zerog.stellarserverforge.gui.theme.StellarLinkIcon.Kind.DISCORD, "Discord",
                 "https://discord.gg/dUGAQF2Mga"));
@@ -209,7 +217,31 @@ public class DashboardPanel extends JPanel {
         bar.add(new com.zerog.stellarserverforge.gui.theme.StellarLinkIcon(
                 com.zerog.stellarserverforge.gui.theme.StellarLinkIcon.Kind.KOFI, "Ko-fi",
                 "https://ko-fi.com/mrwhiteflamesyt"));
-        return bar;
+        return wrap;
+    }
+
+    private JComponent bugReportLink(String url) {
+        JLabel link = new JLabel("<html><u>Found a bug? Report it here</u></html>");
+        link.setFont(StellarTheme.FONT_CAPTION);
+        link.setForeground(StellarTheme.TEXT_SECONDARY);
+        link.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        link.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                com.zerog.stellarserverforge.gui.theme.StellarLinkIcon.openUrl(url);
+            }
+
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                link.setForeground(StellarTheme.ACCENT_400);
+            }
+
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                link.setForeground(StellarTheme.TEXT_SECONDARY);
+            }
+        });
+        return link;
     }
 
     private JComponent buildFooter() {
@@ -251,6 +283,10 @@ public class DashboardPanel extends JPanel {
         return window instanceof Frame ? (Frame) window : null;
     }
 
+
+    private void onOpenChangelog() {
+        new ChangelogDialog(ownerFrame()).setVisible(true);
+    }
 
     private void onOpenCurseForgeImport() {
         new CurseForgeImportDialog(ownerFrame(), ctx, imported -> {

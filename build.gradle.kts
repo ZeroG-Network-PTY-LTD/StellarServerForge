@@ -17,6 +17,17 @@ repositories {
     mavenCentral()
 }
 
+sourceSets {
+    main {
+        resources {
+            // CHANGELOG.md lives at the repo root (so it's easy to find/edit) but is bundled into
+            // the jar so the in-app Changelog dialog can read it as a classpath resource.
+            srcDir(rootDir)
+            include("CHANGELOG.md")
+        }
+    }
+}
+
 dependencies {
     implementation("com.fasterxml.jackson.core:jackson-databind:2.18.2")
     implementation("org.bitlet:weupnp:0.1.4")

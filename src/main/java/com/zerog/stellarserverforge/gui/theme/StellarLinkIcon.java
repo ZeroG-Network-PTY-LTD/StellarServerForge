@@ -71,7 +71,9 @@ public class StellarLinkIcon extends JComponent {
         });
     }
 
-    private static void openUrl(String url) {
+    /** Opens a URL in the system browser, best-effort. Public so other components (e.g. a plain
+     * text link) can reuse the same behavior as the icon links in this bar. */
+    public static void openUrl(String url) {
         try {
             if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
                 Desktop.getDesktop().browse(new URI(url));
