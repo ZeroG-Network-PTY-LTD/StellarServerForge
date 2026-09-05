@@ -33,10 +33,15 @@ public class ZeroGModsPanel extends JPanel {
     private final DefaultListModel<ZeroGModEntry> listModel = new DefaultListModel<>();
     private final JList<ZeroGModEntry> list = new JList<>(listModel);
     private final JTextArea logArea = new JTextArea(8, 60);
+    private final JTextField filterField = new JTextField(20);
 
     private final StellarButton installButton = new StellarButton("Install selected", StellarButton.Variant.PRIMARY);
     private final StellarButton openPageButton = new StellarButton("Open page", StellarButton.Variant.SECONDARY);
     private final StellarButton reloadButton = new StellarButton("Reload catalog", StellarButton.Variant.SECONDARY);
+    private final StellarButton openModsFolderButton = new StellarButton("Open mods folder", StellarButton.Variant.SECONDARY);
+
+    private final java.util.List<ZeroGModEntry> masterEntries = new java.util.ArrayList<>();
+    private final java.util.Set<ZeroGModEntry> installedThisSession = new java.util.HashSet<>();
 
     private SwingWorker<java.nio.file.Path, Void> installWorker;
 
@@ -84,8 +89,28 @@ public class ZeroGModsPanel extends JPanel {
         caption.setAlignmentX(Component.LEFT_ALIGNMENT);
         top.add(caption);
         top.add(Box.createVerticalStrut(StellarTheme.SPACE_11));
-        reloadButton.setAlignmentX(Component.LEFT_ALIGNMENT);
-        top.add(reloadButton);
+
+        JPanel catalogActionsRow = new JPanel(new FlowLayout(FlowLayout.LEFT, StellarTheme.SPACE_8, 0));
+        catalogActionsRow.setOpaque(false);
+        catalogActionsRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        catalogActionsRow.add(reloadButton);
+        catalogActionsRow.add(openModsFolderButton);
+        top.add(catalogActionsRow);
+        top.add(Box.createVerticalStrut(StellarTheme.SPACE_8));
+
+        JPanel filterRow = new JPanel(new BorderLayout(StellarTheme.SPACE_8, 0));
+        filterRow.setOpaque(false);
+        filterRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        filterRow.add(StellarLabels.body("Filter:"), BorderLayout.WEST);
+        filterField.setBackground(StellarTheme.FIELD_BG);
+        filterField.setForeground(StellarTheme.TEXT_PRIMARY);
+        filterField.setCaretColor(StellarTheme.ACCENT);
+        filterField.setFont(StellarTheme.FONT_BODY);
+        filterField.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(StellarTheme.NEUTRAL_800),
+                BorderFactory.createEmptyBorder(4, 8, 4, 8)));
+        filterRow.add(filterField, BorderLayout.CENTER);
+        top.add(filterRow);
         body.add(top, BorderLayout.NORTH);
 
         list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -122,6 +147,39 @@ public class ZeroGModsPanel extends JPanel {
         reloadButton.addActionListener(e -> reload());
         installButton.addActionListener(e -> install());
         openPageButton.addActionListener(e -> openPage());
+        openModsFolderButton.addActionListener(e -> {
+            try {
+                java.nio.file.Path modsDir = ctx.serverDir.resolve("mods");
+                java.nio.file.Files.createDirectories(modsDir);
+                Desktop.getDesktop().open(modsDir.toFile());
+            } catch (IOException | UnsupportedOperationException ex) {
+                log("Could not open the mods folder: " + ex.getMessage());
+            }
+        });
+        list.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (e.getClickCount() == 2 && installButton.isEnabled() && list.getSelectedValue() != null) {
+                    install();
+                }
+            }
+        });
+        filterField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                applyFilter();
+            }
+
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                applyFilter();
+            }
+
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                applyFilter();
+            }
+        });
 
         if (settings.getModLoader() == ModLoader.VANILLA) {
             log("This server is Vanilla — mods can't be installed until a modloader is set up.");
@@ -190,11 +248,35 @@ public class ZeroGModsPanel extends JPanel {
     }
 
     private void applyResult(com.zerog.stellarserverforge.zerogmods.ZeroGModCatalogService.FetchResult result) {
-        listModel.clear();
-        result.entries().forEach(listModel::addElement);
+        masterEntries.clear();
+        masterEntries.addAll(result.entries());
+        installedThisSession.clear();
+        applyFilter();
         log("Loaded " + result.entries().size() + " mod(s) from the catalog.");
         for (String warning : result.skipped()) {
             log("Skipped — " + warning);
+        }
+    }
+
+    /** Rebuilds the visible list from {@link #masterEntries} using the current filter text, then
+     * restores the previous selection if that entry is still visible — a plain {@code
+     * DefaultListModel.clear()} would otherwise silently drop it as you type. */
+    private void applyFilter() {
+        ZeroGModEntry previouslySelected = list.getSelectedValue();
+        String query = filterField.getText().trim().toLowerCase();
+        listModel.clear();
+        for (ZeroGModEntry entry : masterEntries) {
+            String name = entry.getName() == null ? "" : entry.getName().toLowerCase();
+            String desc = entry.getDescription() == null ? "" : entry.getDescription().toLowerCase();
+            if (query.isEmpty() || name.contains(query) || desc.contains(query)) {
+                listModel.addElement(entry);
+            }
+        }
+        if (previouslySelected != null) {
+            int index = listModel.indexOf(previouslySelected);
+            if (index >= 0) {
+                list.setSelectedIndex(index);
+            }
         }
     }
 
@@ -229,6 +311,8 @@ public class ZeroGModsPanel extends JPanel {
                 try {
                     java.nio.file.Path installed = get();
                     log("Installed " + installed.getFileName() + " into mods/.");
+                    installedThisSession.add(entry);
+                    list.repaint();
                 } catch (Exception ex) {
                     log("Install failed: " + rootMessage(ex));
                     if (entry.getPageUrl() != null && !entry.getPageUrl().isBlank()) {
@@ -294,9 +378,10 @@ public class ZeroGModsPanel extends JPanel {
         return cause.getMessage() != null ? cause.getMessage() : cause.toString();
     }
 
-    private static final class EntryRenderer extends JPanel implements ListCellRenderer<ZeroGModEntry> {
+    private final class EntryRenderer extends JPanel implements ListCellRenderer<ZeroGModEntry> {
         private final JLabel nameLabel = StellarLabels.body("");
         private final JLabel descLabel = StellarLabels.muted("");
+        private final JLabel installedLabel = StellarLabels.muted("");
         private final JLabel sourceLabel = new JLabel();
 
         EntryRenderer() {
@@ -307,6 +392,8 @@ public class ZeroGModsPanel extends JPanel {
             textCol.setLayout(new BoxLayout(textCol, BoxLayout.Y_AXIS));
             textCol.add(nameLabel);
             textCol.add(descLabel);
+            installedLabel.setForeground(StellarTheme.STATUS_RUNNING);
+            textCol.add(installedLabel);
             add(textCol, BorderLayout.CENTER);
             sourceLabel.setFont(StellarTheme.FONT_KICKER);
             add(sourceLabel, BorderLayout.EAST);
@@ -317,6 +404,7 @@ public class ZeroGModsPanel extends JPanel {
                                                         int index, boolean isSelected, boolean cellHasFocus) {
             nameLabel.setText(entry.getName());
             descLabel.setText(entry.getDescription() == null ? "" : entry.getDescription());
+            installedLabel.setText(installedThisSession.contains(entry) ? "Installed this session" : "");
             sourceLabel.setText(entry.getSource() == null ? "" : entry.getSource().name());
             Color sourceColor = entry.getSource() == ZeroGModEntry.Source.MODRINTH
                     ? StellarTheme.STATUS_RUNNING : StellarTheme.STELLAR_GOLD;

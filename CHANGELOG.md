@@ -30,3 +30,6 @@ also used as the GitHub Release notes for each CI build — see `docs/wiki/Build
   silently clears which mods were selected.
 - Removed the dashboard footer's "Mods" and "Utilities" buttons — both screens were already
   reachable from the nav bar, so the footer buttons were pure duplication.
+- ZeroG Network mods tab: added a live filter box (selection-preserving, like the Mods tab),
+  double-click to install, an "Installed this session" marker on installed entries, and an
+  "Open mods folder" button.
