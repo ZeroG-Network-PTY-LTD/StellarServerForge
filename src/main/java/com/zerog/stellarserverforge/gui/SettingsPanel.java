@@ -101,7 +101,7 @@ public class SettingsPanel extends JPanel {
         ramRow.add(ramValue, BorderLayout.EAST);
         content.add(ramRow);
 
-        long systemRamGigs = detectSystemRamGigs();
+        long systemRamGigs = com.zerog.stellarserverforge.util.SystemInfo.totalRamGigs();
         JTextArea ramWarning = wrapCaption("");
         content.add(ramWarning);
         Runnable refreshRamWarning = () -> ramWarning.setText(
@@ -329,21 +329,6 @@ public class SettingsPanel extends JPanel {
             case SYSTEM_PATH -> "System PATH";
             case FORCE_MANAGED -> "Force-managed";
         };
-    }
-
-    /** Best-effort total physical RAM, in GB, via the JDK's HotSpot-specific MXBean extension —
-     * returns -1 if unavailable (a non-HotSpot JVM) so callers can skip the warning rather than
-     * guess. */
-    private static long detectSystemRamGigs() {
-        try {
-            var os = java.lang.management.ManagementFactory.getOperatingSystemMXBean();
-            if (os instanceof com.sun.management.OperatingSystemMXBean sunOs) {
-                return sunOs.getTotalMemorySize() / (1024L * 1024 * 1024);
-            }
-        } catch (Throwable ignored) {
-            // Not available on this JVM — skip the warning rather than guess.
-        }
-        return -1;
     }
 
     private void checkPortAvailability(JTextField portField) {

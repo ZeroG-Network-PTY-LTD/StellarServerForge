@@ -52,6 +52,15 @@ public class MojangManifestService {
         return releases;
     }
 
+    /** The manifest's own "latest.release" pointer — lets the setup wizard offer a one-click
+     * "use the latest release" shortcut instead of requiring the version to be typed by hand. */
+    public String latestReleaseVersion() throws IOException, InterruptedException {
+        ensureFresh();
+        JsonNode root = mapper.readTree(manifestPath().toFile());
+        String id = root.path("latest").path("release").asText(null);
+        return (id == null || id.isBlank()) ? null : id;
+    }
+
     public boolean isValidReleaseVersion(String minecraftVersion) throws IOException, InterruptedException {
         for (VersionEntry entry : fetchReleaseVersions()) {
             if (entry.id().equals(minecraftVersion)) {

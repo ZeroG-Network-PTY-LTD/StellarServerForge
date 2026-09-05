@@ -43,3 +43,14 @@ also used as the GitHub Release notes for each CI build — see `docs/wiki/Build
   extracts its overrides into the server folder — the Modrinth equivalent of CurseForge profile
   import, built around the portable `.mrpack` format since Modrinth has no local instance folder
   to scan.
+- Setup wizard: added a final "Review" step (Step 6) summarizing every choice before installing.
+  Added a "Use latest release" button on the Minecraft version step. The RAM step now warns if
+  the allocation exceeds detected system RAM (same check as the Settings screen, now shared via a
+  new `SystemInfo.totalRamGigs()` utility). Fixed Enter doing nothing in the custom-modloader-
+  version field. Fixed inconsistent layout/alignment across steps — one step didn't pin its
+  Back/Continue row to the bottom like the others, and radio buttons/labels weren't explicitly
+  left-aligned, so under this app's look-and-feel they rendered centered instead of lined up.
+- New reusable `StellarRadioButton` and `StellarTextField` theme components (custom-painted,
+  rounded, accent-on-focus) replace the look-and-feel's stock radio/text-field chrome in the setup
+  wizard. The RAM step's number input no longer uses a `JSpinner` — it clashed visually with the
+  rest of the themed UI — replaced with a `−`/`+` button pair around a `StellarTextField`.
